@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "940133243228",
+    "firebase_url": "https://mailchat-18960.firebaseio.com",
+    "project_id": "mailchat-18960",
+    "storage_bucket": "mailchat-18960.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:940133243228:android:f473dd2e5f364de5",
+        "android_client_info": {
+          "package_name": "io.enuma.app.keystoretest"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "940133243228-ddsapiq6rj5b13tcfferbetj6o0ct93l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "io.enuma.app.keystoretest",
+            "certificate_hash": "E27DAA7D48459A814FB1E7661FEC7D95755DB9D5"
+          }
+        },
+        {
+          "client_id": "940133243228-6kqh7gdev4q72fa2tj8po0j57snnndvi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2ZRjYHuLJVaBqJMRoMFj-dwIgOqHHrQI"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "940133243228-6kqh7gdev4q72fa2tj8po0j57snnndvi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
