@@ -30,6 +30,12 @@ public class ChatMessage {
         return new ChatMessage(message, null, null);
     }
 
+    public String id() { return messageId; }
+
+    public boolean isOthers() { return sender != null && messageId != null; }
+    public boolean isMine() { return sender == null && messageId != null; }
+    public boolean isSystem() { return sender == null && messageId == null; }
+
     public String subject;
     public String message;
     public String messageId;//null = datetime

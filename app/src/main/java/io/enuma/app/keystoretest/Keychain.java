@@ -17,6 +17,7 @@ import android.util.Log;
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -29,16 +30,64 @@ import java.security.PublicKey;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.InvalidKeySpecException;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 
 /**
  * Created by llunesu on 14/11/2016.
  */
 
 public final class Keychain {
+
+    private static final String AndroidKeyStore = "AndroidKeyStore";
+    private static final String AES_MODE = "AES/GCM/NoPadding";
+    private final static byte[] FIXED_IV = "TmpKeyAnyway".getBytes();
+
+    public static byte[] encrypt(Key secretKey, byte[] input) throws NoSuchPaddingException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, KeyStoreException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchProviderException {
+        Cipher c = Cipher.getInstance(AES_MODE);
+        c.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, FIXED_IV));
+        return c.doFinal(input);
+    }
+
+    public static byte[] decrypt(Key secretKey, byte[] encryptedBytes) throws NoSuchPaddingException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, KeyStoreException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchProviderException {
+        Cipher c2 = Cipher.getInstance(AES_MODE);
+        c2.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(128, FIXED_IV));
+        return c2.doFinal(encryptedBytes);
+    }
+
+    public static Key getSecretKey(Context context, String alias) throws UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, IOException, CertificateException, InvalidAlgorithmParameterException, NoSuchProviderException {
+        KeyStore keyStore = KeyStore.getInstance(AndroidKeyStore);
+        keyStore.load(null);
+
+        if (!keyStore.containsAlias(alias)) {
+            KeyGenerator keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, AndroidKeyStore);
+            keyGenerator.init(
+                    new KeyGenParameterSpec.Builder(alias,
+                            KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                            .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                            .setRandomizedEncryptionRequired(false)
+                            .build());
+            return keyGenerator.generateKey();
+        }
+        else {
+            return keyStore.getKey(alias, null);
+        }
+    }
+
+
     CancellationSignal cancellationSignal = new CancellationSignal();
+
+
 
     static int ConfirmRequestId = 1;
 

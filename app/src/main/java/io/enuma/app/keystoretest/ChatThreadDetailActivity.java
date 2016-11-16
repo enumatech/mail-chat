@@ -12,6 +12,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.app.ActionBar;
 import android.view.MenuItem;
 
+import static io.enuma.app.keystoretest.ChatThreadListActivity.CREATE_REQUEST_CODE;
+
 /**
  * An activity representing a single ChatThread detail screen. This
  * activity is only used narrow width devices. On tablet-size devices,
@@ -27,18 +29,6 @@ public class ChatThreadDetailActivity extends AppCompatActivity {
 
 //        Toolbar toolbar = (Toolbar) findViewById(R.id.detail_toolbar);
 //        setSupportActionBar(toolbar);
-
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(ChatThreadDetailActivity.this,
-                        SettingsActivity.class);
-                startActivityForResult(intent, 0);
-//                Snackbar.make(view, "Replace with your own detail action", Snackbar.LENGTH_LONG)
-//                        .setAction("Action", null).show();
-            }
-        });
 
         // Show the Up button in the action bar.
 //        ActionBar actionBar = getSupportActionBar();
@@ -84,6 +74,20 @@ public class ChatThreadDetailActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == CREATE_REQUEST_CODE) {
+            if (resultCode == RESULT_OK) {
+                //Use Data to get string
+                String string = data.getStringExtra("RESULT_STRING");
+                if (string != null) {
+
+                    // TODO: create group
+                }
+            }
+        }
     }
 
 }

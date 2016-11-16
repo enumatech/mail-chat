@@ -1,69 +1,107 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <Preference
+        android:key="pref_static_field_key"
+        android:selectable="false"
+        android:persistent="false"
+        android:title="@string/pref_title_help"
+        android:summary="@string/pref_default_help"/>
+
+<!--
     <SwitchPreference
         android:defaultValue="true"
-        android:key="example_switch"
+        android:key="smtp_switch"
         android:summary="@string/pref_description_social_recommendations"
         android:title="@string/pref_title_social_recommendations" />
+-->
 
     <!-- NOTE: EditTextPreference accepts EditText attributes. -->
     <!-- NOTE: EditTextPreference's summary should be set to its value by the activity code. -->
     <EditTextPreference
-        android:capitalize="words"
-        android:defaultValue="@string/pref_default_display_name"
-        android:inputType="textCapWords"
-        android:key="example_text"
-        android:maxLines="1"
-        android:selectAllOnFocus="true"
-        android:singleLine="true"
-        android:title="@string/pref_title_display_name" />
-
-    <EditTextPreference
         android:defaultValue="@string/pref_default_email"
         android:inputType="textEmailAddress"
-        android:key="example_email"
+        android:key="email_address"
         android:maxLines="1"
         android:selectAllOnFocus="true"
         android:singleLine="true"
         android:title="@string/pref_title_email" />
 
     <EditTextPreference
-        android:defaultValue="@string/pref_default_smtp"
-        android:inputType="textUri"
-        android:key="example_server"
+        android:capitalize="words"
+        android:defaultValue=""
+        android:inputType="textCapWords"
+        android:key="display_name"
         android:maxLines="1"
         android:selectAllOnFocus="true"
         android:singleLine="true"
-        android:title="@string/pref_title_smtp" />
+        android:title="@string/pref_title_display_name" />
 
     <EditTextPreference
-        android:defaultValue="@string/pref_default_smtp_username"
+        android:defaultValue=""
+        android:inputType="textUri"
+        android:key="smtp_server"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="@string/pref_title_smtp_server" />
+
+    <EditTextPreference
+        android:defaultValue=""
         android:inputType="text"
-        android:key="example_server"
+        android:key="smtp_username"
         android:maxLines="1"
         android:selectAllOnFocus="true"
         android:singleLine="true"
         android:title="@string/pref_title_smtp_username" />
 
-    <EditTextPreference
-        android:defaultValue="@string/pref_default_smtp_password"
+    <io.enuma.app.keystoretest.EncryptedEditTextPreference
+        android:defaultValue=""
         android:inputType="textPassword"
-        android:key="example_server"
+        android:key="smtp_password"
         android:maxLines="1"
         android:selectAllOnFocus="true"
         android:singleLine="true"
         android:title="@string/pref_title_smtp_password" />
 
+    <EditTextPreference
+        android:defaultValue=""
+        android:inputType="textUri"
+        android:key="imap_server"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="@string/pref_title_imap_server" />
+
+    <EditTextPreference
+        android:defaultValue=""
+        android:inputType="text"
+        android:key="imap_username"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="@string/pref_title_imap_username" />
+
+    <io.enuma.app.keystoretest.EncryptedEditTextPreference
+        android:defaultValue=""
+        android:inputType="textPassword"
+        android:key="imap_password"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="@string/pref_title_imap_password" />
+
     <!-- NOTE: Hide buttons to simplify the UI. Users can touch outside the dialog to
          dismiss it. -->
     <!-- NOTE: ListPreference's summary should be set to its value by the activity code. -->
+<!--
     <ListPreference
         android:defaultValue="-1"
         android:entries="@array/pref_example_list_titles"
         android:entryValues="@array/pref_example_list_values"
-        android:key="example_list"
+        android:key="smtp_list"
         android:negativeButtonText="@null"
         android:positiveButtonText="@null"
         android:title="@string/pref_title_add_friends_to_messages" />
+-->
 
 </PreferenceScreen>

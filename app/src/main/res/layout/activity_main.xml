@@ -19,6 +19,16 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         />
 
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/fab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical|start"
+        android:layout_margin="@dimen/fab_margin"
+        app:layout_anchor="@id/cardList"
+        app:layout_anchorGravity="top|end"
+        app:srcCompat="@drawable/ic_person_black_24dp" />
+
     <View
         android:layout_width="match_parent"
         android:layout_height="5dp"
@@ -29,6 +39,7 @@
     <LinearLayout
         android:id="@+id/msg_box"
         style="@style/AppTheme.MessageBar"
+        android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
