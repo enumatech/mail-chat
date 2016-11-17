@@ -17,51 +17,40 @@ import javax.mail.Session;
 
 public final class SharedSession {
 
-    public static final Session getSession() {
-        return Session.getDefaultInstance(props, null);
-    }
+    private static Session session;
+    private static boolean useSSL;
 
-    private final static Properties props = new Properties();
+    public static final synchronized Session getSession(boolean ssl) {
 
-    static {
-        props.put("mail.store.protocol", "imap");
-        props.put("mail.imap.starttls.enable", "true");
-        props.put("mail.imap.starttls.required", "true");
-        props.put("mail.imap.usesocketchannels", "true");//for IdleManager
-
-        props.put("mail.transport.protocol", "smtp");
-        //props.put("mail.host", smtpServer);
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.port", "587");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.starttls.required", "true");
-        //props.put("mail.smtp.socketFactory.port", "465");
-        //props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
-        //props.put("mail.smtp.socketFactory.fallback", "false");
-        props.put("mail.smtp.auth", "true");
-        //props.put("mail.smtp.quitwait", "false");
-
-//        AccountManager accountManager = AccountManager.get(null);
-//        accountManager.addAccount();
-//        accountManager.getAccountsByType("smtp");
-
-/*
-        new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
-                String smtpPassword = sharedPreferences.getString("smtp_password", "");
-                String smtpUsername = sharedPreferences.getString("smtp_username", "");
-                try {
-                    Key secretKey = Keychain.getSecretKey(context, EncryptedEditTextPreference.KEY_ALIAS);
-                    smtpPassword = Keychain.decryptString(secretKey, smtpPassword);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                return new PasswordAuthentication(smtpUsername, smtpPassword);
+        if (session == null || ssl != useSSL) {
+            useSSL = ssl;
+            Properties props = new Properties();
+            props.put("mail.store.protocol", "imap");
+            if (ssl) {
+                props.put("mail.smtp.ssl.enable", "true");
+                props.put("mail.imap.ssl.enable", "true");
+            } else {
+                props.put("mail.smtp.starttls.required", "true");
+                props.put("mail.smtp.starttls.enable", "true");
+                props.put("mail.imap.starttls.required", "true");
+                props.put("mail.imap.starttls.enable", "true");
             }
-        });
-*/
+            props.put("mail.imap.usesocketchannels", "true");//for IdleManager
+            props.put("mail.imap.connectiontimeout", "5000");
+
+            props.put("mail.transport.protocol", "smtp");
+            //props.put("mail.host", smtpServer);
+            //props.put("mail.smtp.port", "587");
+            //props.put("mail.smtp.socketFactory.port", "465");
+            //props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+            //props.put("mail.smtp.socketFactory.fallback", "false");
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.connectiontimeout", "5000");
+            //props.put("mail.smtp.quitwait", "false");
+
+            session = Session.getInstance(props);
+        }
+        return session;
     }
 
 }

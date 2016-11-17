@@ -7,14 +7,6 @@
         android:title="@string/pref_title_help"
         android:summary="@string/pref_default_help"/>
 
-<!--
-    <SwitchPreference
-        android:defaultValue="true"
-        android:key="smtp_switch"
-        android:summary="@string/pref_description_social_recommendations"
-        android:title="@string/pref_title_social_recommendations" />
--->
-
     <!-- NOTE: EditTextPreference accepts EditText attributes. -->
     <!-- NOTE: EditTextPreference's summary should be set to its value by the activity code. -->
     <EditTextPreference
@@ -93,15 +85,13 @@
     <!-- NOTE: Hide buttons to simplify the UI. Users can touch outside the dialog to
          dismiss it. -->
     <!-- NOTE: ListPreference's summary should be set to its value by the activity code. -->
-<!--
     <ListPreference
-        android:defaultValue="-1"
+        android:defaultValue="1"
         android:entries="@array/pref_example_list_titles"
         android:entryValues="@array/pref_example_list_values"
-        android:key="smtp_list"
+        android:key="pref_security"
         android:negativeButtonText="@null"
         android:positiveButtonText="@null"
-        android:title="@string/pref_title_add_friends_to_messages" />
--->
+        android:title="@string/pref_title_security" />
 
 </PreferenceScreen>

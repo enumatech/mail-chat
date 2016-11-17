@@ -140,6 +140,11 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         // Display the fragment as the main content.
         getFragmentManager().beginTransaction().replace(android.R.id.content,
                 new GeneralPreferenceFragment()).commit();
+
+        Intent intent = new Intent(this, ImapService.class);
+        stopService(intent);
+        Intent intent2 = new Intent(this, SmtpService.class);
+        stopService(intent2);
     }
 
     /**
@@ -203,6 +208,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             bindPreferenceSummaryToValue(findPreference("imap_server"));
             bindPreferenceSummaryToValue(findPreference("imap_username"));
             bindPreferenceSummaryToValue(findPreference("imap_password"));
+            bindPreferenceSummaryToValue(findPreference("pref_security"));
         }
 
         @Override

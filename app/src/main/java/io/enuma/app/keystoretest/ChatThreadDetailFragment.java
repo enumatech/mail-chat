@@ -225,10 +225,13 @@ public class ChatThreadDetailFragment extends Fragment {
             });
 
 
+
             final EditText editText = (EditText)rootView.findViewById(R.id.message_et);
-            InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
             editText.requestFocus();
-            imm.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT);
+            if (mItem.history.size() == 0) {
+                InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+                imm.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT);
+            }
 
             try {
                 recipients = new InternetAddress[]{ mItem.getAddress() };
@@ -274,7 +277,8 @@ public class ChatThreadDetailFragment extends Fragment {
 
     private void addMessage(ChatMessage chatMessage) {
         ((CardListAdapter)recyclerView.getAdapter()).addMessage(chatMessage);
-        recyclerView.smoothScrollToPosition(recyclerView.getAdapter().getItemCount());
+        //recyclerView.smoothScrollToPosition(recyclerView.getAdapter().getItemCount());
+        recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount()-1);
         if (chatMessage.messageId != null) {
             inReplyTo = chatMessage.messageId;
         }

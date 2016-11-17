@@ -144,7 +144,9 @@ public class ImapService extends Service {
     public void receiveMail() {
         try {
 
-            final Session session = SharedSession.getSession();
+            SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
+            String ssl = sharedPreferences.getString("pref_security", "1");
+            final Session session = SharedSession.getSession(ssl == "2");
 
             if (store == null) {
                 store = session.getStore();
@@ -154,10 +156,9 @@ public class ImapService extends Service {
             final IdleManager idleManager = new IdleManager(session, es);
 
             if (!store.isConnected()) {
-                SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
-                String imapPassword = sharedPreferences.getString("imap_password", "");
-                String imapUsername = sharedPreferences.getString("imap_username", "");
-                String imapServer = sharedPreferences.getString("imap_server", "");
+                String imapPassword = sharedPreferences.getString("imap_password", null);
+                String imapUsername = sharedPreferences.getString("imap_username", null);
+                String imapServer = sharedPreferences.getString("imap_server", "unconfigured");
                 emailAddress = sharedPreferences.getString("email_address", "");
                 try {
                     Key secretKey = Keychain.getSecretKey(getBaseContext(), EncryptedEditTextPreference.KEY_ALIAS);
@@ -165,7 +166,13 @@ public class ImapService extends Service {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                store.connect(imapServer, imapUsername, imapPassword);
+                int port = 143;
+                String[] split = imapServer.split(":");
+                if (split.length == 2) {
+                    imapServer = split[0];
+                    port = Integer.parseInt(split[1]);
+                }
+                store.connect(imapServer, port, imapUsername, imapPassword);
             }
 
             final IMAPFolder folder = (IMAPFolder)store.getFolder("INBOX");

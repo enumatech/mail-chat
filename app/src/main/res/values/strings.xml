@@ -14,7 +14,8 @@
     <string name="pref_title_help">Welcome to Mailchat</string>
     <string name="pref_default_help">
         Mailchat is a revolutionary chat app that uses your e-mail for chatting.
-        Your contacts receive their messages in their inbox, or in the Mailchat app.
+        Your contacts receive your messages in their inbox, or in the Mailchat app.
+        Your passwords are stored encrypted with a locally generated cryptographic key.
     </string>
 
     <!-- <string name="pref_title_social_recommendations">Enable social recommendations</string>
@@ -38,18 +39,16 @@
     <string name="pref_title_imap_username">IMAP username</string>
 
     <string name="pref_title_imap_password">IMAP password</string>
-<!--
-        <string name="pref_title_add_friends_to_messages">Add friends to messages</string>
-        <string-array name="pref_example_list_titles">
-            <item>Always</item>
-            <item>When possible</item>
-            <item>Never</item>
-        </string-array>
-        <string-array name="pref_example_list_values">
-            <item>1</item>
-            <item>0</item>
-            <item>-1</item>
-        </string-array>-->
+
+    <string name="pref_title_security">Security protocol</string>
+    <string-array name="pref_example_list_titles">
+        <item>STARTTLS</item>
+        <item>SSL/TLS</item>
+    </string-array>
+    <string-array name="pref_example_list_values">
+        <item>1</item>
+        <item>2</item>
+    </string-array>
 
     <!-- Example settings for Data & Sync -->
 <!--

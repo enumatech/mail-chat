@@ -56,9 +56,11 @@ public class SmtpService extends Service {
         return START_NOT_STICKY;
     }
 
+    private AsyncTask<Void, Void, Void> lastTask;
+
     //@Override
     protected void onHandleIntent(final Intent intent) {
-        new AsyncTask<Void, Void, Void>() {
+        lastTask = new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
                 String subject = intent.getStringExtra(MESSAGE_SUBJECT);
@@ -89,7 +91,9 @@ public class SmtpService extends Service {
             CommandMap.setDefaultCommandMap(mc);
             */
 
-            final Session session = SharedSession.getSession();
+            SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
+            String ssl = sharedPreferences.getString("pref_security", "1");
+            final Session session = SharedSession.getSession(ssl == "2");
 
             MimeMessage message = new MimeMessage(session) {
                 @Override
@@ -147,12 +151,21 @@ public class SmtpService extends Service {
 
     @Override
     public void onDestroy() {
-        if (transport != null && transport.isConnected()) {
-            try {
-                transport.close();
-            } catch (MessagingException e) {
-                e.printStackTrace();
-            }
+        if (lastTask != null) {
+            lastTask.cancel(true);
+        }
+        if (transport != null) {
+            new AsyncTask<Void, Void, Void>() {
+                @Override
+                protected Void doInBackground(Void... params) {
+                    try {
+                        transport.close();
+                    } catch (MessagingException e) {
+                        e.printStackTrace();
+                    }
+                    return null;
+                }
+            }.execute(null, null);
         }
     }
 
@@ -172,15 +185,21 @@ public class SmtpService extends Service {
             if (!transport.isConnected()) {
                 SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
                 String smtpServer = sharedPreferences.getString("smtp_server", "unconfigured");
-                String smtpUsername = sharedPreferences.getString("smtp_username", "");
-                String smtpPassword = sharedPreferences.getString("smtp_password", "");
+                String smtpUsername = sharedPreferences.getString("smtp_username", null);
+                String smtpPassword = sharedPreferences.getString("smtp_password", null);
                 try {
                     Key secretKey = Keychain.getSecretKey(getBaseContext(), EncryptedEditTextPreference.KEY_ALIAS);
                     smtpPassword = Keychain.decryptString(secretKey, smtpPassword);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                transport.connect(smtpServer, smtpUsername, smtpPassword);
+                int port = 25;
+                String[] split = smtpServer.split(":");
+                if (split.length == 2) {
+                    smtpServer = split[0];
+                    port = Integer.parseInt(split[1]);
+                }
+                transport.connect(smtpServer, port, smtpUsername, smtpPassword);
             }
             transport.sendMessage(message, message.getAllRecipients());
             return null;
