@@ -17,14 +17,14 @@ import android.widget.TextView;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 
-import io.enuma.app.keystoretest.dummy.DummyContent;
-
 import static io.enuma.app.keystoretest.ChatThreadListActivity.setGravatarImage;
 
 public class ShareContactActivity extends AppCompatActivity {
 
     public static final String ARG_EMAIL_ADDRESS = "EMAIL_ADDRESS";
     public static final String ARG_DISPLAY_NAME = "DISPLAY_NAME";
+
+    static final int qrCodeDimension = 500;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,19 +54,20 @@ public class ShareContactActivity extends AppCompatActivity {
         TextView email = (TextView)findViewById(R.id.share_contact_email_address);
         email.setText(emailAddress);
 
-        ChatContact contact = DummyContent.ITEM_MAP.get(emailAddress);
+        ChatContact contact = DbOpenHelper.getContact(emailAddress);
         if (contact == null) {
             contact = new ChatContact(emailAddress);
         }
         ImageView imageView = (ImageView)findViewById(R.id.share_contact_avatar);
         setGravatarImage(imageView, contact);
 
-        // FIXME: needs commas
-        String qrData = "MECARD:N:"+displayName+";EMAIL:"+emailAddress+";;\n";
-        int qrCodeDimention = 500;
+        String qrData = "MECARD:N:"+displayName+";EMAIL:"+emailAddress+";";
+        if (contact.pubkeyhash != null) {
+            qrData = qrData + "ADR:"+contact.pubkeyhash+";";
+        }
 
-        QRCodeEncoder qrCodeEncoder = new QRCodeEncoder(qrData, null,
-                Contents.Type.TEXT, BarcodeFormat.QR_CODE.toString(), qrCodeDimention);
+        QRCodeEncoder qrCodeEncoder = new QRCodeEncoder(qrData + ";\n", null,
+                Contents.Type.TEXT, BarcodeFormat.QR_CODE.toString(), qrCodeDimension);
 
         try {
             Bitmap bitmap = qrCodeEncoder.encodeAsBitmap();

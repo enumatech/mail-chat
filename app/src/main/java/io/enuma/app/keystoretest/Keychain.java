@@ -85,6 +85,11 @@ public final class Keychain {
     }
 
 
+    public static String decryptString(Key secretKey, String base64) throws IOException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException, NoSuchProviderException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchPaddingException, BadPaddingException, KeyStoreException, IllegalBlockSizeException {
+        return new String(Keychain.decrypt(secretKey, Base64.decode(base64, 0)));
+    }
+
+
     CancellationSignal cancellationSignal = new CancellationSignal();
 
 

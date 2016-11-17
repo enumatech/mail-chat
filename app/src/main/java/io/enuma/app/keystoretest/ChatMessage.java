@@ -36,7 +36,7 @@ public class ChatMessage {
     public boolean isMine() { return sender == null && messageId != null; }
     public boolean isSystem() { return sender == null && messageId == null; }
 
-    public String subject;
+    //public String subject;
     public String message;
     public String messageId;//null = datetime
     public String sender;//null = me

@@ -1,7 +1,9 @@
 package io.enuma.app.keystoretest;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -25,8 +27,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 
-import io.enuma.app.keystoretest.dummy.DummyContent;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -38,11 +38,18 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+
+import static io.enuma.app.keystoretest.Constants.ADD_MESSAGE;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_ID;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SUBJECT;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
 
 /**
  * An activity representing a list of ChatThreads. This activity
@@ -60,10 +67,22 @@ public class ChatThreadListActivity extends AppCompatActivity {
      */
     private boolean mTwoPane;
 
+    private RecyclerView recyclerView;
+
+    private DbOpenHelper db;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chatthread_list);
+
+        db = new DbOpenHelper(getBaseContext());
+        if (DbOpenHelper.getContacts().size() == 0) {
+            db.readAll();
+        }
+
+        Intent intent = new Intent(this, ImapService.class);
+        startService(intent);
 
         // TODO: we might get data here if opened by notification
         Bundle blah = this.getIntent().getExtras();
@@ -91,9 +110,8 @@ public class ChatThreadListActivity extends AppCompatActivity {
             }
         });
 
-        View recyclerView = findViewById(R.id.chatthread_list);
-        assert recyclerView != null;
-        setupRecyclerView((RecyclerView) recyclerView);
+        recyclerView = (RecyclerView) findViewById(R.id.chatthread_list);
+        recyclerView.setAdapter(new SimpleItemRecyclerViewAdapter(db.getContacts()));
 
         if (findViewById(R.id.chatthread_detail_container) != null) {
             // The detail container view will be present only in the
@@ -103,6 +121,28 @@ public class ChatThreadListActivity extends AppCompatActivity {
             mTwoPane = true;
         }
     }
+
+    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() == ADD_MESSAGE) {
+                String text = intent.getStringExtra(MESSAGE_TEXT);
+                String messageId = intent.getStringExtra(MESSAGE_ID);
+                String sender = intent.getStringExtra(MESSAGE_SENDER);
+                //String subject = intent.getStringExtra(MESSAGE_SUBJECT);
+
+                ChatContact contact = db.getContact(sender);
+                if (contact != null) {
+                    if (contact.history == null) {
+                        contact.history = new ArrayList<>();
+                    }
+                    contact.history.add(ChatMessage.createOthers(text, messageId, sender));
+                    recyclerView.getAdapter().notifyDataSetChanged();
+                }
+            }
+        }
+    };
+
 
     static final int CREATE_REQUEST_CODE = 11;
     static final int ADD_REQUEST_CODE = 12;
@@ -114,12 +154,12 @@ public class ChatThreadListActivity extends AppCompatActivity {
                 //Use Data to get string
                 String string = data.getStringExtra("RESULT_STRING");
                 if (string != null) {
-                    RecyclerView recyclerView = (RecyclerView) findViewById(R.id.chatthread_list);
 
                     ChatContact chatContact = new ChatContact(string);
-                    ((SimpleItemRecyclerViewAdapter) recyclerView.getAdapter()).addContact(chatContact);
+                    //((SimpleItemRecyclerViewAdapter) recyclerView.getAdapter()).addContact(chatContact);
+                    db.addContact(chatContact);
+                    recyclerView.getAdapter().notifyDataSetChanged();
 
-                    DummyContent.addItem(chatContact);
                     openChat(string);
                 }
 
@@ -147,14 +187,20 @@ public class ChatThreadListActivity extends AppCompatActivity {
 
             SettingsActivity.showPreferences(this);
         }
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Constants.ADD_MESSAGE);
+        registerReceiver(receiver, filter);
+        super.onResume();
     }
 
 
-
-
-    private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
-        recyclerView.setAdapter(new SimpleItemRecyclerViewAdapter(DummyContent.ITEMS));
+    @Override
+    protected void onPause() {
+        unregisterReceiver(receiver);
+        super.onPause();
     }
+
 
     final protected static char[] hexArray = "0123456789abcdef".toCharArray();
     public static String bytesToHex(byte[] bytes) {
@@ -224,9 +270,9 @@ public class ChatThreadListActivity extends AppCompatActivity {
 
         private final List<ChatContact> mValues;
 
-        public void addContact(ChatContact chatContact) {
+        //public void addContact(ChatContact chatContact) {
             //mValues.add(chatContact);
-        }
+        //}
 
         public SimpleItemRecyclerViewAdapter(List<ChatContact> items) {
             mValues = items;

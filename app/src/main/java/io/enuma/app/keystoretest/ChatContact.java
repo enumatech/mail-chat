@@ -16,11 +16,11 @@ import javax.mail.internet.InternetAddress;
 public class ChatContact {
     public String email;
     public String name;
-    //public String publicKey;
+    public String pubkeyhash;
     //public String deviceToken;
     //public String address;
     public String last;
-    public Date date;
+    //public Date date;
     public Bitmap avatar;//cache
     //public String myName;
 

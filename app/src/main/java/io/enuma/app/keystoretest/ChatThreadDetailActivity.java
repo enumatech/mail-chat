@@ -1,8 +1,13 @@
 package io.enuma.app.keystoretest;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.widget.Toolbar;
@@ -12,7 +17,14 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.app.ActionBar;
 import android.view.MenuItem;
 
+import java.util.ArrayList;
+
 import static io.enuma.app.keystoretest.ChatThreadListActivity.CREATE_REQUEST_CODE;
+import static io.enuma.app.keystoretest.Constants.ADD_MESSAGE;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_ID;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SUBJECT;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
 
 /**
  * An activity representing a single ChatThread detail screen. This
@@ -21,6 +33,8 @@ import static io.enuma.app.keystoretest.ChatThreadListActivity.CREATE_REQUEST_CO
  * in a {@link ChatThreadListActivity}.
  */
 public class ChatThreadDetailActivity extends AppCompatActivity {
+
+    private ChatThreadDetailFragment fragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +66,7 @@ public class ChatThreadDetailActivity extends AppCompatActivity {
             arguments.putString(ChatThreadDetailFragment.ARG_ITEM_ID,
                     getIntent().getStringExtra(ChatThreadDetailFragment.ARG_ITEM_ID));
 
-            ChatThreadDetailFragment fragment = new ChatThreadDetailFragment();
+            fragment = new ChatThreadDetailFragment();
             fragment.setArguments(arguments);
             getSupportFragmentManager().beginTransaction()
                     .add(R.id.chatthread_detail_container, fragment)
@@ -74,6 +88,25 @@ public class ChatThreadDetailActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Constants.ADD_MESSAGE);
+        filter.addAction(Constants.UPDATE_MESSAGE_STATUS);
+        registerReceiver(fragment.receiver, filter);
+        super.onResume();
+    }
+
+
+    @Override
+    protected void onPause() {
+        unregisterReceiver(fragment.receiver);
+        super.onPause();
     }
 
     @Override

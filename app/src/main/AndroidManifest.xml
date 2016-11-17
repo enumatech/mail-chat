@@ -11,17 +11,31 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
         <service android:name=".NotificationService">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
         <service
             android:name=".DeviceTokenService"
             android:exported="true">
             <intent-filter>
                 <action android:name="com.google.firebase.INSTANCE_ID_EVENT" />
             </intent-filter>
+        </service>
+
+        <service
+            android:name=".ImapService"
+            android:stopWithTask="true"
+            android:exported="false">
+        </service>
+
+        <service
+            android:name=".SmtpService"
+            android:stopWithTask="true"
+            android:exported="false">
         </service>
 
         <!--
@@ -54,7 +68,7 @@
             android:name=".ChatThreadDetailActivity"
             android:label="@string/title_chatthread_detail"
             android:parentActivityName=".ChatThreadListActivity"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="stateVisible|adjustResize">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="io.enuma.app.keystoretest.ChatThreadListActivity" />
