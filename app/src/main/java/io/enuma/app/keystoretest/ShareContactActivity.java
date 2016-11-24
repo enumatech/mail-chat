@@ -32,7 +32,7 @@ public class ShareContactActivity extends AppCompatActivity {
         setContentView(R.layout.activity_share_contact);
 
         String emailAddress;
-        String displayName = "";
+        String displayName;
 
         Bundle bundle = getIntent().getExtras();
         if (bundle != null && bundle.containsKey(ARG_EMAIL_ADDRESS)) {
@@ -40,13 +40,13 @@ public class ShareContactActivity extends AppCompatActivity {
             // arguments. In a real-world scenario, use a Loader
             // to load content from a content provider.
             emailAddress = bundle.getString(ARG_EMAIL_ADDRESS);
-            displayName = bundle.getString(ARG_DISPLAY_NAME, "");
+            displayName = bundle.getString(ARG_DISPLAY_NAME);
 
         } else {
 
             SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
-            emailAddress = sharedPreferences.getString("email_address", "");
-            displayName = sharedPreferences.getString("display_name", "");
+            emailAddress = sharedPreferences.getString("email_address", null);
+            displayName = sharedPreferences.getString("display_name", null);
         }
 
         TextView disp = (TextView)findViewById(R.id.share_contact_display_name);
@@ -61,7 +61,10 @@ public class ShareContactActivity extends AppCompatActivity {
         ImageView imageView = (ImageView)findViewById(R.id.share_contact_avatar);
         setGravatarImage(imageView, contact);
 
-        String qrData = "MECARD:N:"+displayName+";EMAIL:"+emailAddress+";";
+        String qrData = "MECARD:EMAIL:"+emailAddress+";";
+        if (displayName != null) {
+            qrData = qrData + "N:"+displayName+";";
+        }
         if (contact.pubkeyhash != null) {
             qrData = qrData + "ADR:"+contact.pubkeyhash+";";
         }

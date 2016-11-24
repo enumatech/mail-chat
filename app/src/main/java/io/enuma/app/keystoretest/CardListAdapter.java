@@ -31,7 +31,7 @@ public class CardListAdapter extends RecyclerView.Adapter<CardListAdapter.CardLi
         if (s.messageId == null) {
             return R.layout.card_datetime;
         }
-        return (s.sender != null) ? R.layout.card_layout : R.layout.card_me_layout;
+        return (s.senderName != null) ? R.layout.card_layout : R.layout.card_me_layout;
     }
 
     @Override

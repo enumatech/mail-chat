@@ -10,44 +10,30 @@ import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.security.KeyChain;
-import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
-import android.util.Base64;
 import android.util.Log;
-import android.util.Xml;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.KeyStoreException;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-
 import static io.enuma.app.keystoretest.Constants.ADD_MESSAGE;
+import static io.enuma.app.keystoretest.Constants.MAILCHAT_SUBJECT;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_ID;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_EMAIL;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_NAME;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_SUBJECT;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
 
@@ -80,9 +66,6 @@ public class ChatThreadListActivity extends AppCompatActivity {
         if (DbOpenHelper.getContacts().size() == 0) {
             db.readAll();
         }
-
-        Intent intent = new Intent(this, ImapService.class);
-        startService(intent);
 
         // TODO: we might get data here if opened by notification
         Bundle blah = this.getIntent().getExtras();
@@ -128,16 +111,28 @@ public class ChatThreadListActivity extends AppCompatActivity {
             if (intent.getAction() == ADD_MESSAGE) {
                 String text = intent.getStringExtra(MESSAGE_TEXT);
                 String messageId = intent.getStringExtra(MESSAGE_ID);
-                String sender = intent.getStringExtra(MESSAGE_SENDER);
-                //String subject = intent.getStringExtra(MESSAGE_SUBJECT);
+                String sender = intent.getStringExtra(MESSAGE_SENDER_EMAIL);
+                String senderName = intent.getStringExtra(MESSAGE_SENDER_NAME);
+                String subject = intent.getStringExtra(MESSAGE_SUBJECT);
 
                 ChatContact contact = db.getContact(sender);
+                if (contact ==  null && subject != null && subject.contains(MAILCHAT_SUBJECT) && sender != null) {
+                    contact = new ChatContact(sender);
+                    contact.name = senderName;
+                    db.addContact(contact);
+                }
                 if (contact != null) {
-                    if (contact.history == null) {
-                        contact.history = new ArrayList<>();
-                    }
-                    contact.history.add(ChatMessage.createOthers(text, messageId, sender));
+                    ChatMessage chatMessage = ChatMessage.createOthers(text, messageId, senderName);
+                    db.saveMessage(contact.email, chatMessage);
+//                    if (contact.history == null) {
+//                        contact.history = new ArrayList<>();
+//                    }
+//                    contact.history.add(chatMessage);
+                    contact.last = text;
                     recyclerView.getAdapter().notifyDataSetChanged();
+                }
+                if (sender == null && messageId == null) {
+                    Toast.makeText(context, text, Toast.LENGTH_LONG).show();
                 }
             }
         }
@@ -187,6 +182,9 @@ public class ChatThreadListActivity extends AppCompatActivity {
 
             SettingsActivity.showPreferences(this);
         }
+
+        Intent intent = new Intent(this, ImapService.class);
+        startService(intent);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(Constants.ADD_MESSAGE);
@@ -297,6 +295,13 @@ public class ChatThreadListActivity extends AppCompatActivity {
                 @Override
                 public void onClick(View v) {
                     openChat(holder.mItem.id());
+                }
+            });
+            holder.mView.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    db.removeContact(holder.mItem);
+                    return true;
                 }
             });
         }

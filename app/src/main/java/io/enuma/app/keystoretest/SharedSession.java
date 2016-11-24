@@ -37,6 +37,7 @@ public final class SharedSession {
             }
             props.put("mail.imap.usesocketchannels", "true");//for IdleManager
             props.put("mail.imap.connectiontimeout", "5000");
+            props.put("mail.imap.timeout", "5000");
 
             props.put("mail.transport.protocol", "smtp");
             //props.put("mail.host", smtpServer);
@@ -46,6 +47,7 @@ public final class SharedSession {
             //props.put("mail.smtp.socketFactory.fallback", "false");
             props.put("mail.smtp.auth", "true");
             props.put("mail.smtp.connectiontimeout", "5000");
+            props.put("mail.smtp.timeout", "5000");
             //props.put("mail.smtp.quitwait", "false");
 
             session = Session.getInstance(props);

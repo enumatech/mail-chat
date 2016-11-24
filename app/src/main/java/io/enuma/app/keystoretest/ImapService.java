@@ -3,19 +3,22 @@ package io.enuma.app.keystoretest;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.AsyncTask;
-import android.os.Binder;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
-import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.sun.mail.imap.IMAPFolder;
+import com.sun.mail.imap.IMAPMessage;
 import com.sun.mail.imap.IdleManager;
+import com.sun.mail.imap.ResyncData;
 
 import java.io.IOException;
 import java.security.Key;
+import java.sql.Date;
+import java.util.Calendar;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -30,14 +33,16 @@ import javax.mail.Multipart;
 import javax.mail.Part;
 import javax.mail.Session;
 import javax.mail.Store;
-import javax.mail.Transport;
+import javax.mail.UIDFolder;
+import javax.mail.event.MailEvent;
 import javax.mail.event.MessageCountEvent;
 import javax.mail.event.MessageCountListener;
 import javax.mail.internet.InternetAddress;
 
 import static io.enuma.app.keystoretest.Constants.ADD_MESSAGE;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_ID;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_NAME;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_EMAIL;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_SUBJECT;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
 
@@ -49,21 +54,30 @@ public class ImapService extends Service {
 
     private Thread thread;
 
+    final static int FETCH_COUNT = 100;
+    final static Pattern chatPattern = Pattern.compile("\\A\\s*(.*?)\\s*(?:^>>|^> |^--|\\z|^—|^__|^On [^\n]+ wrote:$)", Pattern.DOTALL|Pattern.MULTILINE);
+
+
+    final FetchProfile fp = new FetchProfile();
+
+
+    public ImapService() {
+        fp.add(FetchProfile.Item.ENVELOPE);
+    }
+
+
     @Override
     public void onCreate() {
+        assert thread == null;
         thread = new Thread(new Runnable() {
             @Override
             public void run() {
                 receiveMail();
-                try {
-                    store.close();
-                } catch (MessagingException e) {
-                    e.printStackTrace();
-                }
             }
         });
         thread.start();
     }
+
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -77,18 +91,20 @@ public class ImapService extends Service {
         return null;
     }
 
-    private Store store;
-
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         stopSelf();
     }
 
+
     @Override
     public void onDestroy() {
         thread.interrupt();
+        thread = null;
+        //Toast.makeText(getBaseContext(), "Imap service closed", Toast.LENGTH_SHORT);
     }
+
 
     //private boolean textIsHtml = false;
 
@@ -135,132 +151,168 @@ public class ImapService extends Service {
         return null;
     }
 
-
-    final static int FETCH_COUNT = 100;
-    final static Pattern chatPattern = Pattern.compile("\\A\\s*(.*?)\\s*(^>>|^> |^--|\\z|^—|^__)", Pattern.DOTALL|Pattern.MULTILINE);
-
     private String emailAddress;
+    private static long lastUID;
+
+    private void fetchMessages(IMAPFolder f, Message[] msgs) throws MessagingException {
+        Log.v("imap", "FETCH count " + msgs.length);
+        f.fetch(msgs, fp);
+        parseMessages(msgs);
+        if (msgs.length > 0) {
+            lastUID = f.getUID(msgs[msgs.length - 1]);
+        }
+    }
+
 
     public void receiveMail() {
         try {
 
             SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
-            String ssl = sharedPreferences.getString("pref_security", "1");
-            final Session session = SharedSession.getSession(ssl == "2");
 
-            if (store == null) {
-                store = session.getStore();
+            emailAddress = sharedPreferences.getString("email_address", null);
+            if (emailAddress == null) {
+                return;
             }
 
-            ExecutorService es = Executors.newCachedThreadPool();
+            boolean ssl = sharedPreferences.getString("pref_security", "1").equals("2");
+            final Session session = SharedSession.getSession(ssl);
+
+            final ExecutorService es = Executors.newCachedThreadPool();
+            /*
+            This delivers the events for each folder in a separate thread, NOT using the Executor.
+            To deliver all events in a single thread using the Executor, set the following properties
+            for the Session (once), and then add listeners and watch the folder as above.
+
+            // the following should be done once...
+            Properties props = session.getProperties();
+            props.put("mail.event.scope", "session"); // or "application"
+            props.put("mail.event.executor", es);
+            */
+            final Store store = session.getStore();
             final IdleManager idleManager = new IdleManager(session, es);
-
-            if (!store.isConnected()) {
-                String imapPassword = sharedPreferences.getString("imap_password", null);
-                String imapUsername = sharedPreferences.getString("imap_username", null);
-                String imapServer = sharedPreferences.getString("imap_server", "unconfigured");
-                emailAddress = sharedPreferences.getString("email_address", "");
-                try {
-                    Key secretKey = Keychain.getSecretKey(getBaseContext(), EncryptedEditTextPreference.KEY_ALIAS);
-                    imapPassword = Keychain.decryptString(secretKey, imapPassword);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                int port = 143;
-                String[] split = imapServer.split(":");
-                if (split.length == 2) {
-                    imapServer = split[0];
-                    port = Integer.parseInt(split[1]);
-                }
-                store.connect(imapServer, port, imapUsername, imapPassword);
-            }
-
-            final IMAPFolder folder = (IMAPFolder)store.getFolder("INBOX");
-            folder.open(Folder.READ_ONLY);
 
             final FetchProfile fp = new FetchProfile();
             fp.add(FetchProfile.Item.ENVELOPE);
+            fp.add(UIDFolder.FetchProfileItem.UID);
             fp.add("Message-ID");
 
-            int count = folder.getMessageCount();
-            Log.v("imap","INBOX count "+count);
+            IMAPFolder folder = null;
 
-            Message[] msgs = folder.getMessages(count <= FETCH_COUNT ? 1 : count - FETCH_COUNT, count);
-            folder.fetch(msgs, fp);
-            parseMessages(msgs);
+            while (!Thread.currentThread().isInterrupted()) {
 
-            folder.addMessageCountListener(new MessageCountListener() {
-                @Override
-                public void messagesAdded(MessageCountEvent e) {
-                    try {
-                        folder.fetch(e.getMessages(), fp);
-                        parseMessages(e.getMessages());
-                        idleManager.watch((Folder)e.getSource()); // keep watching for new messages
-                    } catch (Exception e1) {
-                        e1.printStackTrace();
-                        // Retry later?
+                // Reconnect to the store
+                if (!store.isConnected()) {
+                    Log.v("imap", "reconnect");
+
+                    String imapPassword = sharedPreferences.getString("imap_password", null);
+                    String imapUsername = sharedPreferences.getString("imap_username", null);
+                    String imapServer = sharedPreferences.getString("imap_server", "unconfigured");
+                    Key secretKey = Keychain.getSecretKey(getBaseContext(), EncryptedEditTextPreference.KEY_ALIAS);
+                    imapPassword = Keychain.decryptString(secretKey, imapPassword);
+                    int port = ssl ? 993 : 143;
+                    String[] split = imapServer.split(":");
+                    if (split.length == 2) {
+                        imapServer = split[0];
+                        port = Integer.parseInt(split[1]);
                     }
+                    store.connect(imapServer, port, imapUsername, imapPassword);
+
+                    folder = (IMAPFolder) store.getFolder("INBOX");
+
+                    folder.addMessageCountListener(new MessageCountListener() {
+                        @Override
+                        public void messagesAdded(MessageCountEvent e) {
+                            try {
+                                IMAPFolder f = (IMAPFolder)e.getSource();
+                                fetchMessages(f, e.getMessages());
+                            } catch (Exception e1) {
+                                e1.printStackTrace();
+                                // Retry later?
+                            }
+                        }
+
+                        @Override
+                        public void messagesRemoved(MessageCountEvent e) {
+                            // NOP
+                        }
+                    });
                 }
 
-                @Override
-                public void messagesRemoved(MessageCountEvent e) {
-                    // NOP
+                // Open the folder, if not currently open
+                if (!folder.isOpen()) {
+
+                    long uid_validity = sharedPreferences.getLong("uid_validity", 0);
+
+                    //ResyncData resyncData = new ResyncData(uid_validity, 0, lastUID, UIDFolder.LASTUID);
+                    folder.open(Folder.READ_ONLY);
+                    int count = folder.getMessageCount();
+                    Log.v("imap", "INBOX count " + count);
+
+                    long uidvalidity = folder.getUIDValidity();
+                    if (uid_validity != uidvalidity) {
+                        sharedPreferences.edit().putLong("uid_validity", uidvalidity).commit();
+                        lastUID = 0;
+                    }
+
+                    //Message[] msgs = folder.getMessagesByUID(lastUID + 1, UIDFolder.LASTUID);
+                    Message[] msgs = folder.getMessages(count <= FETCH_COUNT ? 1 : count - FETCH_COUNT, count);
+                    fetchMessages(folder, msgs);
                 }
-            });
 
-                        /*
-This delivers the events for each folder in a separate thread, NOT using the Executor. To deliver all events in a single thread using the Executor, set the following properties for the Session (once), and then add listeners and watch the folder as above.
-        // the following should be done once...
-        Properties props = session.getProperties();
-        props.put("mail.event.scope", "session"); // or "application"
-        props.put("mail.event.executor", es);
-                         */
-            idleManager.watch(folder);
+                try {
+                    idleManager.watch(folder);
+                }
+                catch (MessagingException e) {
+                    //NOP
+                }
+            }
 
-            //publishProgress(ChatMessage.createSystem(e2.getLocalizedMessage()));
-
-
+            idleManager.stop();
+            store.close();
         }
         catch (Exception e) {
             e.printStackTrace();
+            //Toast.makeText(getBaseContext(), e.getLocalizedMessage(), Toast.LENGTH_LONG);
+            addMessage(null, "IMAP "+e.getLocalizedMessage(), null, null, null);
         }
     }
 
     private void parseMessages(Message[] msgs) {
 
         for (int i=0; i<msgs.length;i++) {
+            if (Thread.currentThread().isInterrupted()) {
+                break;
+            }
             try {
-                Address[] recipientAddresses = (Address[]) msgs[i].getAllRecipients();
+                Address[] recipientAddresses = msgs[i].getAllRecipients();
                 if (recipientAddresses != null
                         && recipientAddresses.length == 1
                         && recipientAddresses[0] instanceof InternetAddress
-                        && ((InternetAddress)recipientAddresses[0]).getAddress().equalsIgnoreCase(emailAddress)) {
+                        && emailAddress.equalsIgnoreCase(((InternetAddress)recipientAddresses[0]).getAddress())) {
 
-                    Address sender = msgs[i].getFrom()[0];
+                    InternetAddress sender = (InternetAddress) msgs[i].getFrom()[0];
+                    String senderAddress = sender.getAddress();
+
+                    // Only fetch emails from known senders
+                    if (DbOpenHelper.getContact(senderAddress) == null) {
+                        continue;
+                    }
+
                     Log.v("imap", "Got mail from "+sender+", for "+recipientAddresses[0]);
-                    String[] messageID = msgs[i].getHeader("Message-ID");
-                    String senderAddress = ((InternetAddress) sender).getAddress();
 
                     String message = getText(msgs[i]);//lazily
                     if (message != null) {
                         Matcher m = chatPattern.matcher(message);
                         if (m.find() && m.group(1) != null && m.group(1).length() > 0) {
-
+                            String[] messageID = msgs[i].getHeader("Message-ID");
                             String subject = msgs[i].getSubject();
-/*
-                                        if (subject != null && !subject.equals(lastSubject)) {
-                    addMessage(msgs[0], msgs[1], msgs[2]);
-                                            publishProgress(ChatMessage.createSystem(subject));
-                                            lastSubject = subject;
-                                        }
-*/
-
-                            addMessage(messageID[0], m.group(1), senderAddress, subject);
+                            String senderName = sender.getPersonal();
+                            addMessage(messageID[0], m.group(1), senderAddress, senderName, subject);
                             continue;
                         }
                     }
 
-                    addMessage(null, "Could not extract message content", null, null);
+                    addMessage(null, "Could not extract message content", null, null, null);
                 }
             } catch (Exception e1) {
                 e1.printStackTrace();
@@ -268,11 +320,12 @@ This delivers the events for each folder in a separate thread, NOT using the Exe
         }
     }
 
-    private void addMessage(String messageId, String text, String sender, String subject) {
+    private void addMessage(String messageId, String text, String sender, String name, String subject) {
         Intent intent = new Intent(ADD_MESSAGE);
         intent.putExtra(MESSAGE_TEXT, text);
+        intent.putExtra(MESSAGE_SENDER_NAME, name);
         intent.putExtra(MESSAGE_ID, messageId);
-        intent.putExtra(MESSAGE_SENDER, sender);
+        intent.putExtra(MESSAGE_SENDER_EMAIL, sender);
         intent.putExtra(MESSAGE_SUBJECT, subject);
         sendBroadcast(intent);
     }

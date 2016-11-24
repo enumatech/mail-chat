@@ -1,30 +1,12 @@
 package io.enuma.app.keystoretest;
 
-import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
-import android.support.v7.widget.Toolbar;
-import android.util.Log;
-import android.view.View;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.app.ActionBar;
 import android.view.MenuItem;
 
-import java.util.ArrayList;
-
 import static io.enuma.app.keystoretest.ChatThreadListActivity.CREATE_REQUEST_CODE;
-import static io.enuma.app.keystoretest.Constants.ADD_MESSAGE;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_ID;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_SUBJECT;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
 
 /**
  * An activity representing a single ChatThread detail screen. This

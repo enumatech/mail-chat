@@ -1,84 +1,44 @@
 package io.enuma.app.keystoretest;
 
-import android.accounts.AccountManager;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.AsyncTask;
 import android.preference.PreferenceManager;
-import android.support.annotation.BoolRes;
-import android.support.design.widget.CollapsingToolbarLayout;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Base64;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 
-import com.sun.mail.imap.IMAPFolder;
-import com.sun.mail.imap.IdleManager;
-
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.Key;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import javax.mail.Address;
-import javax.mail.Authenticator;
-import javax.mail.FetchProfile;
-import javax.mail.Folder;
-import javax.mail.Message;
-import javax.mail.MessagingException;
-import javax.mail.Multipart;
-import javax.mail.Part;
-import javax.mail.PasswordAuthentication;
-import javax.mail.Session;
-import javax.mail.Store;
-import javax.mail.Transport;
-import javax.mail.event.MessageCountEvent;
-import javax.mail.event.MessageCountListener;
-import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
 
-import static android.app.Activity.RESULT_OK;
-import static android.content.Context.MODE_PRIVATE;
 import static io.enuma.app.keystoretest.ChatThreadListActivity.ADD_REQUEST_CODE;
 import static io.enuma.app.keystoretest.Constants.ADD_MESSAGE;
+import static io.enuma.app.keystoretest.Constants.MAILCHAT_SUBJECT;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_ID;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_INREPLYTO;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_RECIPIENT;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_NAME;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_RECIPIENT_EMAIL;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_EMAIL;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_STATUS;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_SUBJECT;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
 import static io.enuma.app.keystoretest.Constants.UPDATE_MESSAGE_STATUS;
 import static io.enuma.app.keystoretest.ShareContactActivity.ARG_DISPLAY_NAME;
 import static io.enuma.app.keystoretest.ShareContactActivity.ARG_EMAIL_ADDRESS;
-import static java.util.regex.Pattern.DOTALL;
 
 /**
  * A fragment representing a single ChatThread detail screen.
@@ -93,7 +53,6 @@ public class ChatThreadDetailFragment extends Fragment {
      */
     public static final String ARG_ITEM_ID = "item_id";
 
-    public static final String MAILCHAT_SUBJECT = "sent by mailchat";
 
     /**
      * The dummy content this fragment is presenting.
@@ -102,7 +61,6 @@ public class ChatThreadDetailFragment extends Fragment {
 
     private InternetAddress[] recipients;
     private String inReplyTo;
-    private String emailAddress;
     private RecyclerView recyclerView;
     private volatile String lastSubject = MAILCHAT_SUBJECT;
 
@@ -139,7 +97,7 @@ public class ChatThreadDetailFragment extends Fragment {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction() == ADD_MESSAGE) {
-                String sender = intent.getStringExtra(MESSAGE_SENDER);
+                String sender = intent.getStringExtra(MESSAGE_SENDER_EMAIL);
                 String text = intent.getStringExtra(MESSAGE_TEXT);
                 String messageId = intent.getStringExtra(MESSAGE_ID);
                 String subject = intent.getStringExtra(MESSAGE_SUBJECT);
@@ -151,7 +109,7 @@ public class ChatThreadDetailFragment extends Fragment {
                     addMessage(chatMessage);
                     pendingMessageMap.put(messageId, chatMessage);
                 }
-                else {
+                else if (sender.equalsIgnoreCase(mItem.email)) {
                     if (!subject.equals(lastSubject)) {
                         addMessage(ChatMessage.createSystem(subject));
                         lastSubject = subject;
@@ -193,8 +151,15 @@ public class ChatThreadDetailFragment extends Fragment {
                 }
             });
 
+            // Read old messages, if any
             if (mItem.history == null) {
-                mItem.history = new ArrayList<ChatMessage>();
+                //mItem.history = new ArrayList<ChatMessage>();
+                mItem.history = new DbOpenHelper(getContext()).readAllMessages(mItem.email);
+            }
+
+            // Use the message-ID of the last message for the next reply
+            if (mItem.history.size() > 0) {
+                inReplyTo = mItem.history.get(mItem.history.size() - 1).messageId;
             }
             CardListAdapter cardListAdapter = new CardListAdapter(mItem.history);
 
@@ -224,8 +189,6 @@ public class ChatThreadDetailFragment extends Fragment {
                 }
             });
 
-
-
             final EditText editText = (EditText)rootView.findViewById(R.id.message_et);
             editText.requestFocus();
             if (mItem.history.size() == 0) {
@@ -238,8 +201,8 @@ public class ChatThreadDetailFragment extends Fragment {
                 //receiveMail(recipients);
 
                 SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getContext());
-                emailAddress = sharedPreferences.getString("email_address", "");
-                String displayName = sharedPreferences.getString("display_name", "");
+                final String emailAddress = sharedPreferences.getString("email_address", "");
+                final String displayName = sharedPreferences.getString("display_name", "");
                 //final Address address = new InternetAddress(emailAddress, displayName == "" ? null : displayName);
 
                 Button sendMailButton = (Button) rootView.findViewById(R.id.send_message);
@@ -248,8 +211,7 @@ public class ChatThreadDetailFragment extends Fragment {
                     public void onClick(View v) {
                         String text = editText.getText().toString().trim();
                         if (text.length() > 0) {
-
-                            sendMail(text, emailAddress, recipients[0].getAddress());
+                            sendMail(text, emailAddress, displayName, recipients[0].getAddress());
                         }
                         editText.getText().clear();
                     }
@@ -264,12 +226,13 @@ public class ChatThreadDetailFragment extends Fragment {
         return rootView;
     }
 
-    private void sendMail(String text, String address, String recipient) {
+    private void sendMail(String text, String address, String name, String recipient) {
         Intent intent = new Intent(getActivity(), SmtpService.class);
         intent.putExtra(MESSAGE_TEXT, text);
         intent.putExtra(MESSAGE_SUBJECT, lastSubject);
-        intent.putExtra(MESSAGE_SENDER, address);
-        intent.putExtra(MESSAGE_RECIPIENT, recipient);
+        intent.putExtra(MESSAGE_SENDER_EMAIL, address);
+        intent.putExtra(MESSAGE_SENDER_NAME, name);
+        intent.putExtra(MESSAGE_RECIPIENT_EMAIL, recipient);
         intent.putExtra(MESSAGE_INREPLYTO, inReplyTo);
         getActivity().startService(intent);
     }
@@ -282,5 +245,6 @@ public class ChatThreadDetailFragment extends Fragment {
         if (chatMessage.messageId != null) {
             inReplyTo = chatMessage.messageId;
         }
+        new DbOpenHelper(getContext()).saveMessage(mItem.email, chatMessage);
     }
 }

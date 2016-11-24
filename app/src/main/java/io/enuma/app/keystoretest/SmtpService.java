@@ -1,19 +1,13 @@
 package io.enuma.app.keystoretest;
 
-import android.app.IntentService;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
-import android.os.Binder;
 import android.os.IBinder;
-import android.os.IInterface;
-import android.os.Parcel;
-import android.os.RemoteException;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 
-import java.io.FileDescriptor;
 import java.security.Key;
 
 import javax.mail.Address;
@@ -28,8 +22,9 @@ import javax.mail.internet.MimeMessage;
 import static io.enuma.app.keystoretest.Constants.ADD_MESSAGE;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_ID;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_INREPLYTO;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_RECIPIENT;
-import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_RECIPIENT_EMAIL;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_EMAIL;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_NAME;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_STATUS;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_SUBJECT;
 import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
@@ -65,13 +60,15 @@ public class SmtpService extends Service {
             protected Void doInBackground(Void... params) {
                 String subject = intent.getStringExtra(MESSAGE_SUBJECT);
                 String body = intent.getStringExtra(MESSAGE_TEXT);
-                String sender = intent.getStringExtra(MESSAGE_SENDER);
-                String recipient = intent.getStringExtra(MESSAGE_RECIPIENT);
+                String sender = intent.getStringExtra(MESSAGE_SENDER_EMAIL);
+                String senderName = intent.getStringExtra(MESSAGE_SENDER_NAME);
+                String recipient = intent.getStringExtra(MESSAGE_RECIPIENT_EMAIL);
                 String inReplyTo = intent.getStringExtra(MESSAGE_INREPLYTO);
                 try {
-                    sendMail(subject, body, new InternetAddress(sender), InternetAddress.parse(recipient), inReplyTo);
-                } catch (AddressException e) {
+                    sendMail(subject, body, new InternetAddress(sender, senderName), InternetAddress.parse(recipient), inReplyTo);
+                } catch (Exception e) {
                     e.printStackTrace();
+                    addMessage(null, e.getLocalizedMessage(), null);
                 }
                 return null;
             }
@@ -92,8 +89,8 @@ public class SmtpService extends Service {
             */
 
             SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
-            String ssl = sharedPreferences.getString("pref_security", "1");
-            final Session session = SharedSession.getSession(ssl == "2");
+            boolean ssl = sharedPreferences.getString("pref_security", "1").equals("2");
+            final Session session = SharedSession.getSession(ssl);
 
             MimeMessage message = new MimeMessage(session) {
                 @Override
@@ -144,7 +141,7 @@ public class SmtpService extends Service {
         Intent intent = new Intent(ADD_MESSAGE);
         intent.putExtra(MESSAGE_TEXT, text);
         intent.putExtra(MESSAGE_ID, messageId);
-        intent.putExtra(MESSAGE_SENDER, sender);
+        intent.putExtra(MESSAGE_SENDER_EMAIL, sender);
         sendBroadcast(intent);
     }
 
@@ -193,7 +190,8 @@ public class SmtpService extends Service {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                int port = 25;
+                boolean ssl = sharedPreferences.getString("pref_security", "1").equals("2");
+                int port = ssl ? 465 : 587;//25;
                 String[] split = smtpServer.split(":");
                 if (split.length == 2) {
                     smtpServer = split[0];

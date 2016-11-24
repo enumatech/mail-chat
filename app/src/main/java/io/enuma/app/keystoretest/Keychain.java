@@ -23,6 +23,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
@@ -34,6 +35,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.InvalidKeySpecException;
+import java.util.Arrays;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -42,6 +44,8 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
+
+import static io.enuma.app.keystoretest.ChatThreadListActivity.bytesToHex;
 
 /**
  * Created by llunesu on 14/11/2016.
@@ -53,19 +57,22 @@ public final class Keychain {
     private static final String AES_MODE = "AES/GCM/NoPadding";
     private final static byte[] FIXED_IV = "TmpKeyAnyway".getBytes();
 
-    public static byte[] encrypt(Key secretKey, byte[] input) throws NoSuchPaddingException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, KeyStoreException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchProviderException {
+    public static byte[] encrypt(Key secretKey, byte[] input)
+            throws NoSuchPaddingException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, KeyStoreException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchProviderException {
         Cipher c = Cipher.getInstance(AES_MODE);
         c.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, FIXED_IV));
         return c.doFinal(input);
     }
 
-    public static byte[] decrypt(Key secretKey, byte[] encryptedBytes) throws NoSuchPaddingException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, KeyStoreException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchProviderException {
+    public static byte[] decrypt(Key secretKey, byte[] encryptedBytes)
+            throws NoSuchPaddingException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, KeyStoreException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchProviderException {
         Cipher c2 = Cipher.getInstance(AES_MODE);
         c2.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(128, FIXED_IV));
         return c2.doFinal(encryptedBytes);
     }
 
-    public static Key getSecretKey(Context context, String alias) throws UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, IOException, CertificateException, InvalidAlgorithmParameterException, NoSuchProviderException {
+    public static Key getSecretKey(Context context, String alias)
+            throws UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, IOException, CertificateException, InvalidAlgorithmParameterException, NoSuchProviderException {
         KeyStore keyStore = KeyStore.getInstance(AndroidKeyStore);
         keyStore.load(null);
 
@@ -85,7 +92,8 @@ public final class Keychain {
     }
 
 
-    public static String decryptString(Key secretKey, String base64) throws IOException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException, NoSuchProviderException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchPaddingException, BadPaddingException, KeyStoreException, IllegalBlockSizeException {
+    public static String decryptString(Key secretKey, String base64)
+            throws IOException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException, NoSuchProviderException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchPaddingException, BadPaddingException, KeyStoreException, IllegalBlockSizeException {
         return new String(Keychain.decrypt(secretKey, Base64.decode(base64, 0)));
     }
 
@@ -140,7 +148,7 @@ public final class Keychain {
     }
 
 
-    private void generate()
+    public static KeyPair generate(String alias )
             throws java.security.NoSuchAlgorithmException, NoSuchProviderException,
             InvalidAlgorithmParameterException, InvalidKeyException, KeyStoreException,
             IOException, CertificateException, UnrecoverableKeyException, InvalidKeySpecException, SignatureException {
@@ -150,7 +158,7 @@ public final class Keychain {
 
         keyPairGenerator.initialize(
                 new KeyGenParameterSpec.Builder(
-                        "key1",
+                        alias,
                         KeyProperties.PURPOSE_SIGN)
                         .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
                         .setDigests(KeyProperties.DIGEST_SHA256)
@@ -159,25 +167,40 @@ public final class Keychain {
                         .setUserAuthenticationRequired(true)
                         .setUserAuthenticationValidityDurationSeconds(5 * 60)
                         .build());
-        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+        return keyPairGenerator.generateKeyPair();
     }
 
-    private String sign()
-            throws KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException,
-            UnrecoverableKeyException, InvalidKeyException, SignatureException, InvalidKeySpecException, NoSuchProviderException {
-        // The key pair can also be obtained from the Android Keystore any time as follows:
+    public static String getPubkeyHash(PublicKey pubkey)
+            throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        byte[] data = pubkey.getEncoded();
+        md.update(data, 0, data.length);
+        byte[] sha1hash = md.digest();
+        return "0x" + bytesToHex(Arrays.copyOfRange(sha1hash, 12, 20));
+    }
+
+    public static PublicKey getPubkey(String alias)
+            throws KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException {
         KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
         keyStore.load(null);
-        PrivateKey privateKey = (PrivateKey) keyStore.getKey("key1", null);
+        return keyStore.getCertificate(alias).getPublicKey();
+    }
+
+    public static String sign(String alias, byte[] bytes)
+            throws KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException,
+            UnrecoverableKeyException, InvalidKeyException, SignatureException, InvalidKeySpecException, NoSuchProviderException {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, null);
 
         KeyFactory factory = KeyFactory.getInstance(privateKey.getAlgorithm(), "AndroidKeyStore");
         KeyInfo keyInfo = factory.getKeySpec(privateKey, KeyInfo.class);
-        boolean isit = keyInfo.isInsideSecureHardware();
-        PublicKey publicKey = keyStore.getCertificate("key1").getPublicKey();
-        byte[] data = privateKey.getEncoded();
+        //boolean isit = keyInfo.isInsideSecureHardware(); must be true
+        //byte[] data = privateKey.getEncoded(); must be null
+
         Signature signature = Signature.getInstance("SHA256withECDSA");
         signature.initSign(privateKey);
-        signature.update("sdfg".getBytes("UTF-8"));
+        signature.update(bytes);
         byte[] sig = signature.sign();
         return Base64.encodeToString(sig, 0);
     }
