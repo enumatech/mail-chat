@@ -21,7 +21,9 @@ public class ChatContact {
     //public String address;
     public String last;
     //public Date date;
-    public Bitmap avatar;//cache
+    public Bitmap avatar;
+    public String avatarDate;
+    public boolean avatarUpdated;
     //public String myName;
 
     public ChatContact(String email) {

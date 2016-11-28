@@ -24,9 +24,8 @@ import android.widget.Toast;
 
 
 import java.io.InputStream;
+import java.net.URLConnection;
 import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import static io.enuma.app.keystoretest.Constants.ADD_MESSAGE;
@@ -64,7 +63,7 @@ public class ChatThreadListActivity extends AppCompatActivity {
 
         db = new DbOpenHelper(getBaseContext());
         if (DbOpenHelper.getContacts().size() == 0) {
-            db.readAll();
+            db.readAllContacts();
         }
 
         // TODO: we might get data here if opened by notification
@@ -214,7 +213,18 @@ public class ChatThreadListActivity extends AppCompatActivity {
     private static volatile MessageDigest md;
 
     static void setGravatarImage(final ImageView imageView, final ChatContact contact) {
-        if (contact.avatar == null) {
+
+        if (contact.avatar != null) {
+            imageView.setImageBitmap( contact.avatar );
+        }
+        else {
+            imageView.setImageBitmap( BitmapFactory.decodeResource(imageView.getResources(), R.drawable.ic_action_avatar) );
+        }
+
+        if (!contact.avatarUpdated) {
+
+            // Don't fetch the avatar again for this contact (during this session)
+            contact.avatarUpdated = true;
 
             new AsyncTask<String, Void, Bitmap>() {
 
@@ -226,23 +236,30 @@ public class ChatThreadListActivity extends AppCompatActivity {
                         }
                         byte[] thedigest = md.digest(contact.email.toLowerCase().getBytes("UTF-8"));
                         String md5 = bytesToHex(thedigest);
-                        InputStream in = new java.net.URL("http://www.gravatar.com/avatar/" + md5 + "?s=128").openStream();
-                        return BitmapFactory.decodeStream(in);
+                        URLConnection urlConnection = new java.net.URL("http://www.gravatar.com/avatar/" + md5 + "?s=128&d=404").openConnection();
+                        if (contact.avatarDate != null) {
+                            // Set the caching header
+                            urlConnection.setRequestProperty("If-Modified-Since", contact.avatarDate);
+                        }
+                        InputStream in = urlConnection.getInputStream();
+                        Bitmap bitmap = BitmapFactory.decodeStream(in);
+                        contact.avatarDate = urlConnection.getHeaderField("Date");
+                        return bitmap;
                     } catch (Exception e) {
-                        Log.e("Error", e.getMessage());
-                        e.printStackTrace();
+//                        Log.e("Error", e.getMessage());
+//                        e.printStackTrace();
                         return null;
                     }
                 }
 
                 protected void onPostExecute(Bitmap result) {
-                    contact.avatar = result;
-                    imageView.setImageBitmap(result);
+                    if (result != null) {
+                        contact.avatar = result;
+                        imageView.setImageBitmap(result);
+                        new DbOpenHelper(imageView.getContext()).updateContact(contact);
+                    }
                 }
             }.execute(contact.email);
-
-        } else {
-            imageView.setImageBitmap(contact.avatar);
         }
     }
 

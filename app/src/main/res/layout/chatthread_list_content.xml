@@ -7,6 +7,7 @@
     <ImageView
         android:id="@+id/avatar"
         android:layout_margin="@dimen/text_margin"
+        android:src="@drawable/ic_action_avatar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
@@ -25,6 +26,7 @@
         android:id="@+id/content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textAppearance="?attr/collapsedTitleTextAppearance" />
+        android:textColor="@color/textLight"
+        android:textAppearance="?attr/textAppearanceListItemSmall" />
     </LinearLayout>
 </LinearLayout>

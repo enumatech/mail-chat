@@ -1,5 +1,6 @@
 package io.enuma.app.keystoretest;
 
+import android.content.Intent;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,6 +11,13 @@ import android.widget.TextView;
 import java.util.List;
 
 import io.enuma.app.keystoretest.R;
+
+import static io.enuma.app.keystoretest.Constants.MESSAGE_INREPLYTO;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_RECIPIENT_EMAIL;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_EMAIL;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SENDER_NAME;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_SUBJECT;
+import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
 
 public class CardListAdapter extends RecyclerView.Adapter<CardListAdapter.CardListViewHolder> {
 
@@ -36,12 +44,17 @@ public class CardListAdapter extends RecyclerView.Adapter<CardListAdapter.CardLi
 
     @Override
     public void onBindViewHolder(CardListViewHolder cardListViewHolder, int i) {
-        ChatMessage s = list.get(i);
+        final ChatMessage s = list.get(i);
         cardListViewHolder.title.setText(s.message);
         if (s.status == ChatMessage.Status.Failed)
             cardListViewHolder.button.setVisibility(View.VISIBLE);
         else if (s.status == ChatMessage.Status.Delivered)
             cardListViewHolder.button.setVisibility(View.INVISIBLE);
+//        cardListViewHolder.button.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//            }
+//        });
     }
 
     @Override

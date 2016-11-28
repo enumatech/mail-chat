@@ -124,7 +124,7 @@ public class ChatThreadDetailFragment extends Fragment {
                 chatMessage.status = ChatMessage.Status.values()[status];
                 ((CardListAdapter) recyclerView.getAdapter()).updateMessageStatus(chatMessage);
 
-                if (status == 1) {
+                if (status == ChatMessage.Status.Delivered.ordinal()) {
                     pendingMessageMap.remove(messageId);
                 }
             }

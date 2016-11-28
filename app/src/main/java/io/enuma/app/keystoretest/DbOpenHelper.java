@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -17,6 +18,8 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,7 +41,7 @@ public class DbOpenHelper extends SQLiteOpenHelper {
      */
     private static final Map<String, ChatContact> ITEM_MAP = new HashMap<String, ChatContact>();
 
-    private static final int DATABASE_VERSION = 5;
+    private static final int DATABASE_VERSION = 6;
 
     private static final String CONTACTS_TABLE_NAME = "contacts";
     private static final String CONTACTS_TABLE_CREATE =
@@ -47,7 +50,9 @@ public class DbOpenHelper extends SQLiteOpenHelper {
                     "name TEXT, " +
                     "pubkeyhash TEXT, " +
                     "lastMessage TEXT, " +
-                    "hidden BOOLEAN NOT NULL DEFAULT 0 );";
+                    "hidden BOOLEAN NOT NULL DEFAULT 0, " +
+                    "avatar BLOB, " +
+                    "avatarDate TEXT );";
 
     private static final String MESSAGES_TABLE_NAME = "messages";
     private static final String MESSAGES_TABLE_CREATE =
@@ -56,7 +61,8 @@ public class DbOpenHelper extends SQLiteOpenHelper {
                     "senderName TEXT, " +
                     "message TEXT NOT NULL, " +
                     "timestamp DATE NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
-                    "messageid TEXT NULL );";
+                    "messageid TEXT NULL," +
+                    "status INTEGER DEFAULT 0 );";
     private static final String MESSAGES_INDEX_CREATE =
             "CREATE UNIQUE INDEX IDX_messages_messageid ON " + MESSAGES_TABLE_NAME + "(messageid);";
     private static final String MESSAGES_INDEX_CREATE2 =
@@ -84,33 +90,43 @@ public class DbOpenHelper extends SQLiteOpenHelper {
             db.execSQL("ALTER TABLE contacts ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT 0;");
         }
         if (newVersion == 5) {
+            db.execSQL("ALTER TABLE contacts ADD COLUMN avatar BLOB;");
             db.execSQL(MESSAGES_TABLE_CREATE);
             db.execSQL(MESSAGES_INDEX_CREATE);
             db.execSQL(MESSAGES_INDEX_CREATE2);
+        }
+        if (newVersion == 6) {
+            db.execSQL("ALTER TABLE contacts ADD COLUMN avatarDate TEXT;");
         }
     }
 
     public List<ChatMessage> readAllMessages(String thread) {
         Cursor cursor = getReadableDatabase().query(MESSAGES_TABLE_NAME,
-                new String[] {"message","messageid","senderName"},
+                new String[] {"message","messageid","senderName","status"},
                 "thread = ?", new String[]{thread}, null, null, "timestamp");
         List<ChatMessage> list = new ArrayList<ChatMessage>();
         while (cursor.moveToNext()) {
             ChatMessage chatMessage = new ChatMessage(cursor.getString(0), cursor.getString(1), cursor.getString(2));
+            chatMessage.status = ChatMessage.Status.values()[cursor.getInt((3))];
             list.add(chatMessage);
         }
         cursor.close();
         return list;
     }
 
-    public void readAll() {
+    public void readAllContacts() {
         Cursor cursor = getReadableDatabase().query(CONTACTS_TABLE_NAME,
-                new String[] {"email","name","pubkeyhash"},
+                new String[] {"email","name","pubkeyhash","avatar","avatarDate"},
                 "hidden = 0", null, null, null, null);
         while (cursor.moveToNext()) {
             ChatContact chatContact = new ChatContact(cursor.getString(0));
             chatContact.name = cursor.getString(1);
             chatContact.pubkeyhash = cursor.getString(2);
+            byte[] blob = cursor.getBlob(3);
+            if (blob != null && blob.length > 0) {
+                chatContact.avatar = BitmapFactory.decodeByteArray(blob, 0, blob.length);
+                chatContact.avatarDate = cursor.getString(4);
+            }
             addItem(chatContact);
         }
         cursor.close();
@@ -122,12 +138,12 @@ public class DbOpenHelper extends SQLiteOpenHelper {
         return ITEMS.add(item) ? ITEMS.size() - 1 : -1;
     }
 
-    public void removeContact(ChatContact item) {
+    public boolean removeContact(ChatContact item) {
         ContentValues contentValues = new ContentValues();
         contentValues.put("hidden", 1);
         getWritableDatabase().update(CONTACTS_TABLE_NAME, contentValues, "email = ?", new String[]{item.email});
         ITEM_MAP.remove(item.id());
-        ITEMS.remove(item);
+        return ITEMS.remove(item);
     }
 
     public boolean saveMessage(String thread, ChatMessage item) {
@@ -136,7 +152,22 @@ public class DbOpenHelper extends SQLiteOpenHelper {
         contentValues.put("message", item.message);
         contentValues.put("senderName", item.senderName);
         contentValues.put("messageid", item.messageId);
-        return getWritableDatabase().insert(MESSAGES_TABLE_NAME, null, contentValues) != -1;
+        contentValues.put("status", item.status.ordinal());
+        return -1 != getWritableDatabase().insert(MESSAGES_TABLE_NAME, null, contentValues);
+    }
+
+    public boolean updateContact(ChatContact item) {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put("name", item.name);
+        contentValues.put("pubkeyhash", item.pubkeyhash);
+        if (item.avatar != null) {
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            if (item.avatar.compress(Bitmap.CompressFormat.JPEG, 1, byteArrayOutputStream)) {
+                contentValues.put("avatar", byteArrayOutputStream.toByteArray());
+                contentValues.put("avatarDate", item.avatarDate);
+            }
+        }
+        return 1 == getWritableDatabase().update(CONTACTS_TABLE_NAME, contentValues, "email = ?", new String[]{item.email});
     }
 
     public int addContact(ChatContact item) {

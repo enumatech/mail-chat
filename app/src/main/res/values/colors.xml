@@ -4,6 +4,7 @@
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#45c01a</color>
     <color name="text">#000000</color>
+    <color name="textLight">#666666</color>
     <color name="backgroundYou">#ffffff</color>
     <color name="backgroundMe">#a0e75a</color>
     <color name="backgroundDatetime">#d4d4d4</color>
