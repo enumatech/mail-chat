@@ -5,6 +5,7 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -15,6 +16,7 @@ import android.preference.EditTextPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
+import android.support.v4.text.TextUtilsCompat;
 import android.support.v7.app.ActionBar;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
@@ -120,11 +122,11 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
      *
      * @see #sBindPreferenceSummaryToValueListener
      */
-    private static void bindPreferenceSummaryToValue(Preference preference) {
+    private static void bindPreferenceSummaryToValue(Preference preference, Preference.OnPreferenceChangeListener listener) {
         // Set the listener to watch for value changes.
-        preference.setOnPreferenceChangeListener(sBindPreferenceSummaryToValueListener);
+        preference.setOnPreferenceChangeListener(listener);
 
-        // Trigger the listener immediately with the preference's
+        // Trigger the summary listener immediately with the preference's
         // current value.
         sBindPreferenceSummaryToValueListener.onPreferenceChange(preference,
                 PreferenceManager
@@ -190,6 +192,15 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
      */
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static class GeneralPreferenceFragment extends PreferenceFragment {
+
+        protected void putStringIfEmpty(String prefName, String value) {
+            EditTextPreference editTextPreference = (EditTextPreference)findPreference(prefName);
+            if (!value.equals("") && editTextPreference.getText().equals("")) {
+                editTextPreference.setText(value);
+                sBindPreferenceSummaryToValueListener.onPreferenceChange(editTextPreference, value);
+            }
+        }
+
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
@@ -200,15 +211,29 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             // to their values. When their values change, their summaries are
             // updated to reflect the new value, per the Android Design
             // guidelines.
-            bindPreferenceSummaryToValue(findPreference("display_name"));
-            bindPreferenceSummaryToValue(findPreference("email_address"));
-            bindPreferenceSummaryToValue(findPreference("smtp_server"));
-            bindPreferenceSummaryToValue(findPreference("smtp_username"));
-            bindPreferenceSummaryToValue(findPreference("smtp_password"));
-            bindPreferenceSummaryToValue(findPreference("imap_server"));
-            bindPreferenceSummaryToValue(findPreference("imap_username"));
-            bindPreferenceSummaryToValue(findPreference("imap_password"));
-            bindPreferenceSummaryToValue(findPreference("pref_security"));
+            bindPreferenceSummaryToValue(findPreference("email_address"), new Preference.OnPreferenceChangeListener() {
+                        @Override
+                        public boolean onPreferenceChange(Preference preference, Object newValue) {
+                            String stringValue = newValue.toString();
+                            putStringIfEmpty("smtp_username", stringValue);
+                            putStringIfEmpty("imap_username", stringValue);
+                            String[] x = stringValue.split("@");
+                            if (x.length == 2) {
+                                putStringIfEmpty("smtp_server", x[1]);
+                                putStringIfEmpty("imap_server", x[1]);
+                                putStringIfEmpty("display_name", x[0]);
+                            }
+                            return sBindPreferenceSummaryToValueListener.onPreferenceChange(preference, newValue);
+                        }
+                    });
+            bindPreferenceSummaryToValue(findPreference("display_name"), sBindPreferenceSummaryToValueListener);
+            bindPreferenceSummaryToValue(findPreference("smtp_server"), sBindPreferenceSummaryToValueListener);
+            bindPreferenceSummaryToValue(findPreference("smtp_username"), sBindPreferenceSummaryToValueListener);
+            bindPreferenceSummaryToValue(findPreference("smtp_password"), sBindPreferenceSummaryToValueListener);
+            bindPreferenceSummaryToValue(findPreference("imap_server"), sBindPreferenceSummaryToValueListener);
+            bindPreferenceSummaryToValue(findPreference("imap_username"), sBindPreferenceSummaryToValueListener);
+            bindPreferenceSummaryToValue(findPreference("imap_password"), sBindPreferenceSummaryToValueListener);
+            bindPreferenceSummaryToValue(findPreference("pref_security"), sBindPreferenceSummaryToValueListener);
         }
 
         @Override

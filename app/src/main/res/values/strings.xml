@@ -42,8 +42,8 @@
 
     <string name="pref_title_security">Security protocol</string>
     <string-array name="pref_example_list_titles">
-        <item>STARTTLS</item>
-        <item>SSL/TLS</item>
+        <item>STARTTLS/TLS</item>
+        <item>SSL</item>
     </string-array>
     <string-array name="pref_example_list_values">
         <item>1</item>
