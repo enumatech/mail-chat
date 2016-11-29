@@ -229,7 +229,14 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             bindPreferenceSummaryToValue(findPreference("display_name"), sBindPreferenceSummaryToValueListener);
             bindPreferenceSummaryToValue(findPreference("smtp_server"), sBindPreferenceSummaryToValueListener);
             bindPreferenceSummaryToValue(findPreference("smtp_username"), sBindPreferenceSummaryToValueListener);
-            bindPreferenceSummaryToValue(findPreference("smtp_password"), sBindPreferenceSummaryToValueListener);
+            bindPreferenceSummaryToValue(findPreference("smtp_password"), new Preference.OnPreferenceChangeListener() {
+                @Override
+                public boolean onPreferenceChange(Preference preference, Object newValue) {
+                    String stringValue = newValue.toString();
+                    putStringIfEmpty("imap_password", stringValue);
+                    return sBindPreferenceSummaryToValueListener.onPreferenceChange(preference, newValue);
+                }
+            });
             bindPreferenceSummaryToValue(findPreference("imap_server"), sBindPreferenceSummaryToValueListener);
             bindPreferenceSummaryToValue(findPreference("imap_username"), sBindPreferenceSummaryToValueListener);
             bindPreferenceSummaryToValue(findPreference("imap_password"), sBindPreferenceSummaryToValueListener);

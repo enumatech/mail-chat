@@ -122,12 +122,12 @@ public class ChatThreadListActivity extends AppCompatActivity {
                 }
                 if (contact != null) {
                     ChatMessage chatMessage = ChatMessage.createOthers(text, messageId, senderName);
-                    db.saveMessage(contact.email, chatMessage);
+                    db.addMessage(contact.email, chatMessage);
 //                    if (contact.history == null) {
 //                        contact.history = new ArrayList<>();
 //                    }
 //                    contact.history.add(chatMessage);
-                    contact.last = text;
+                    contact.lastMessage = ChatContact.summarize(text);
                     recyclerView.getAdapter().notifyDataSetChanged();
                 }
                 if (sender == null && messageId == null) {
@@ -304,7 +304,7 @@ public class ChatThreadListActivity extends AppCompatActivity {
         public void onBindViewHolder(final ViewHolder holder, int position) {
             holder.mItem = mValues.get(position);
             holder.mIdView.setText(holder.mItem.toString());
-            holder.mContentView.setText(holder.mItem.getLastMessage());
+            holder.mContentView.setText(holder.mItem.lastMessage);
 
             setGravatarImage(holder.mImageView, holder.mItem);
 

@@ -19,11 +19,11 @@ public class ChatContact {
     public String pubkeyhash;
     //public String deviceToken;
     //public String address;
-    public String last;
     //public Date date;
     public Bitmap avatar;
     public String avatarDate;
     public boolean avatarUpdated;
+    public String lastMessage;
     //public String myName;
 
     public ChatContact(String email) {
@@ -41,8 +41,6 @@ public class ChatContact {
         }
         return result.replace('\n',' ').replace('\t',' ');
     }
-
-    public String getLastMessage() { return (history != null && history.size() > 0) ? summarize(history.get(history.size()-1).message) : ""; }
 
     public InternetAddress getAddress() throws UnsupportedEncodingException { return new InternetAddress(email, name); }
 

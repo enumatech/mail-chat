@@ -3,6 +3,7 @@ package io.enuma.app.keystoretest;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.AsyncTask;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
@@ -52,7 +53,12 @@ import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
 
 public class ImapService extends Service {
 
-    private Thread thread;
+    private final Thread thread = new Thread(new Runnable() {
+        @Override
+        public void run() {
+            receiveMail();
+        }
+    });
 
     final static int FETCH_COUNT = 100;
     final static Pattern chatPattern = Pattern.compile("\\A\\s*(.*?)\\s*(?:^>>|^> |^--|\\z|^—|^__|^On [^\n]+ wrote:$)", Pattern.DOTALL|Pattern.MULTILINE);
@@ -68,14 +74,8 @@ public class ImapService extends Service {
 
     @Override
     public void onCreate() {
-        assert thread == null;
-        thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                receiveMail();
-            }
-        });
         thread.start();
+        Log.d("imap", "service started");
     }
 
 
@@ -101,8 +101,26 @@ public class ImapService extends Service {
     @Override
     public void onDestroy() {
         thread.interrupt();
-        thread = null;
-        //Toast.makeText(getBaseContext(), "Imap service closed", Toast.LENGTH_SHORT);
+
+        new AsyncTask<Folder,Void,Void>(){
+            @Override
+            protected Void doInBackground(Folder... params) {
+                try {
+                    if (params[0] != null) {
+                        params[0].getMessageCount();
+                    }
+                } catch (MessagingException e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }
+        }.execute(folder);
+
+        try {
+            thread.join();
+        } catch (InterruptedException e) {
+        }
+        Log.d("imap", "service stopped");
     }
 
 
@@ -152,22 +170,21 @@ public class ImapService extends Service {
     }
 
     private String emailAddress;
-    private static long lastUID;
 
-    private void fetchMessages(IMAPFolder f, Message[] msgs) throws MessagingException {
+    private long fetchMessages(IMAPFolder f, Message[] msgs) throws MessagingException {
         Log.v("imap", "FETCH count " + msgs.length);
         f.fetch(msgs, fp);
-        parseMessages(msgs);
-        if (msgs.length > 0) {
-            lastUID = f.getUID(msgs[msgs.length - 1]);
-        }
+        int count = parseMessages(msgs);
+        Log.v("imap", "FETCHed count " + count);
+        return count > 0 ? f.getUID(msgs[count-1]) : 0;
     }
 
+    private IMAPFolder folder;
 
     public void receiveMail() {
         try {
 
-            SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
+            final SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
 
             emailAddress = sharedPreferences.getString("email_address", null);
             if (emailAddress == null) {
@@ -177,7 +194,7 @@ public class ImapService extends Service {
             boolean ssl = sharedPreferences.getString("pref_security", "1").equals("2");
             final Session session = SharedSession.getSession(ssl);
 
-            final ExecutorService es = Executors.newCachedThreadPool();
+            //final ExecutorService es = Executors.newCachedThreadPool();
             /*
             This delivers the events for each folder in a separate thread, NOT using the Executor.
             To deliver all events in a single thread using the Executor, set the following properties
@@ -188,15 +205,13 @@ public class ImapService extends Service {
             props.put("mail.event.scope", "session"); // or "application"
             props.put("mail.event.executor", es);
             */
+            //final IdleManager idleManager = new IdleManager(session, es);
             final Store store = session.getStore();
-            final IdleManager idleManager = new IdleManager(session, es);
 
             final FetchProfile fp = new FetchProfile();
             fp.add(FetchProfile.Item.ENVELOPE);
             fp.add(UIDFolder.FetchProfileItem.UID);
             fp.add("Message-ID");
-
-            IMAPFolder folder = null;
 
             while (!Thread.currentThread().isInterrupted()) {
 
@@ -224,7 +239,11 @@ public class ImapService extends Service {
                         public void messagesAdded(MessageCountEvent e) {
                             try {
                                 IMAPFolder f = (IMAPFolder)e.getSource();
-                                fetchMessages(f, e.getMessages());
+                                long last_uid = fetchMessages(f, e.getMessages());
+                                if (last_uid > 0) {
+                                    sharedPreferences.edit().putLong("last_uid", last_uid).commit();
+                                }
+                                //idleManager.watch(f);
                             } catch (Exception e1) {
                                 e1.printStackTrace();
                                 // Retry later?
@@ -242,6 +261,7 @@ public class ImapService extends Service {
                 if (!folder.isOpen()) {
 
                     long uid_validity = sharedPreferences.getLong("uid_validity", 0);
+                    long last_uid = sharedPreferences.getLong("last_uid", 0);
 
                     //ResyncData resyncData = new ResyncData(uid_validity, 0, lastUID, UIDFolder.LASTUID);
                     folder.open(Folder.READ_ONLY);
@@ -251,23 +271,33 @@ public class ImapService extends Service {
                     long uidvalidity = folder.getUIDValidity();
                     if (uid_validity != uidvalidity) {
                         sharedPreferences.edit().putLong("uid_validity", uidvalidity).commit();
-                        lastUID = 0;
+                        last_uid = 0;
                     }
 
-                    //Message[] msgs = folder.getMessagesByUID(lastUID + 1, UIDFolder.LASTUID);
-                    Message[] msgs = folder.getMessages(count <= FETCH_COUNT ? 1 : count - FETCH_COUNT, count);
-                    fetchMessages(folder, msgs);
+                    Message[] msgs = folder.getMessagesByUID(last_uid + 1, UIDFolder.LASTUID);
+                    //Message[] msgs = folder.getMessages(count <= FETCH_COUNT ? 1 : count - FETCH_COUNT, count);
+                    last_uid = fetchMessages(folder, msgs);
+                    if (last_uid > 0) {
+                        sharedPreferences.edit().putLong("last_uid", last_uid).commit();
+                    }
+                }
+
+                if (Thread.currentThread().isInterrupted()) {
+                    break;
                 }
 
                 try {
-                    idleManager.watch(folder);
+                    folder.idle();
+                    //idleManager.watch(folder);
                 }
                 catch (MessagingException e) {
+                    //e.printStackTrace();
                     //NOP
                 }
             }
 
-            idleManager.stop();
+            folder.close();
+            //idleManager.stop();
             store.close();
         }
         catch (Exception e) {
@@ -277,11 +307,11 @@ public class ImapService extends Service {
         }
     }
 
-    private void parseMessages(Message[] msgs) {
+    private int parseMessages(Message[] msgs) {
 
         for (int i=0; i<msgs.length;i++) {
             if (Thread.currentThread().isInterrupted()) {
-                break;
+                return i;
             }
             try {
                 Address[] recipientAddresses = msgs[i].getAllRecipients();
@@ -318,6 +348,7 @@ public class ImapService extends Service {
                 e1.printStackTrace();
             }
         }
+        return msgs.length;
     }
 
     private void addMessage(String messageId, String text, String sender, String name, String subject) {

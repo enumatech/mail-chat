@@ -20,6 +20,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -101,73 +102,133 @@ public class DbOpenHelper extends SQLiteOpenHelper {
     }
 
     public List<ChatMessage> readAllMessages(String thread) {
-        Cursor cursor = getReadableDatabase().query(MESSAGES_TABLE_NAME,
-                new String[] {"message","messageid","senderName","status"},
-                "thread = ?", new String[]{thread}, null, null, "timestamp");
-        List<ChatMessage> list = new ArrayList<ChatMessage>();
-        while (cursor.moveToNext()) {
-            ChatMessage chatMessage = new ChatMessage(cursor.getString(0), cursor.getString(1), cursor.getString(2));
-            chatMessage.status = ChatMessage.Status.values()[cursor.getInt((3))];
-            list.add(chatMessage);
+        SQLiteDatabase db = getReadableDatabase();
+        try {
+            Cursor cursor = db.query(MESSAGES_TABLE_NAME,
+                    new String[]{"message", "messageid", "senderName", "status"},
+                    "thread = ?", new String[]{thread}, null, null, "timestamp");
+            List<ChatMessage> list = new ArrayList<ChatMessage>();
+            while (cursor.moveToNext()) {
+                ChatMessage chatMessage = new ChatMessage(cursor.getString(0), cursor.getString(1), cursor.getString(2));
+                chatMessage.status = ChatMessage.Status.values()[cursor.getInt(3)];
+                list.add(chatMessage);
+            }
+            cursor.close();
+            return list;
         }
-        cursor.close();
-        return list;
+        finally {
+            db.close();
+        }
     }
 
     public void readAllContacts() {
-        Cursor cursor = getReadableDatabase().query(CONTACTS_TABLE_NAME,
-                new String[] {"email","name","pubkeyhash","avatar","avatarDate"},
-                "hidden = 0", null, null, null, null);
-        while (cursor.moveToNext()) {
-            ChatContact chatContact = new ChatContact(cursor.getString(0));
-            chatContact.name = cursor.getString(1);
-            chatContact.pubkeyhash = cursor.getString(2);
-            byte[] blob = cursor.getBlob(3);
-            if (blob != null && blob.length > 0) {
-                chatContact.avatar = BitmapFactory.decodeByteArray(blob, 0, blob.length);
-                chatContact.avatarDate = cursor.getString(4);
+        SQLiteDatabase db = getReadableDatabase();
+        try {
+            Cursor cursor = db.query(CONTACTS_TABLE_NAME,
+                    new String[]{"email", "name", "pubkeyhash", "lastMessage", "avatar", "avatarDate"},
+                    "hidden = 0", null, null, null, null);
+            while (cursor.moveToNext()) {
+                ChatContact chatContact = new ChatContact(cursor.getString(0));
+                chatContact.name = cursor.getString(1);
+                chatContact.pubkeyhash = cursor.getString(2);
+                chatContact.lastMessage = cursor.getString(3);
+                byte[] blob = cursor.getBlob(4);
+                if (blob != null && blob.length > 0) {
+                    chatContact.avatar = BitmapFactory.decodeByteArray(blob, 0, blob.length);
+                    chatContact.avatarDate = cursor.getString(5);
+                }
+                addItem(chatContact);
             }
-            addItem(chatContact);
+            cursor.close();
         }
-        cursor.close();
+        finally {
+            db.close();
+        }
     }
 
     private int addItem(ChatContact item) {
         ChatContact previous = ITEM_MAP.put(item.id(), item);
-        assert previous == null;
-        return ITEMS.add(item) ? ITEMS.size() - 1 : -1;
+        if (previous != null) {
+            int i = ITEMS.indexOf(previous);
+            ITEMS.set(i, item);
+            return i;
+        }
+        else {
+            return ITEMS.add(item) ? ITEMS.size() - 1 : -1;
+        }
     }
 
     public boolean removeContact(ChatContact item) {
         ContentValues contentValues = new ContentValues();
         contentValues.put("hidden", 1);
-        getWritableDatabase().update(CONTACTS_TABLE_NAME, contentValues, "email = ?", new String[]{item.email});
+        SQLiteDatabase db = getWritableDatabase();
+        try {
+            db.update(CONTACTS_TABLE_NAME, contentValues, "email = ?", new String[]{item.email});
+        }
+        finally {
+            db.close();
+        }
         ITEM_MAP.remove(item.id());
         return ITEMS.remove(item);
     }
 
-    public boolean saveMessage(String thread, ChatMessage item) {
-        ContentValues contentValues = new ContentValues();
-        contentValues.put("thread", thread);
-        contentValues.put("message", item.message);
-        contentValues.put("senderName", item.senderName);
-        contentValues.put("messageid", item.messageId);
-        contentValues.put("status", item.status.ordinal());
-        return -1 != getWritableDatabase().insert(MESSAGES_TABLE_NAME, null, contentValues);
+    public boolean updateMessage(String thread, ChatMessage item) {
+        SQLiteDatabase db = getWritableDatabase();
+        try {
+            ContentValues contentValues = new ContentValues();
+            contentValues.put("status", item.status.ordinal());
+            return 1 ==  db.update(MESSAGES_TABLE_NAME, contentValues, "messageid = ?", new String[]{item.messageId});
+        }
+        finally {
+            db.close();
+        }
+    }
+
+    public boolean addMessage(String thread, ChatMessage item) {
+        SQLiteDatabase db = getWritableDatabase();
+        try {
+            ContentValues contentValues = new ContentValues();
+            contentValues.put("thread", thread);
+            contentValues.put("message", item.message);
+            contentValues.put("senderName", item.senderName);
+            contentValues.put("messageid", item.messageId);
+            contentValues.put("status", item.status.ordinal());
+            if (0 < db.insertWithOnConflict(MESSAGES_TABLE_NAME, null, contentValues, SQLiteDatabase.CONFLICT_IGNORE)) {
+                String lastMessage = ChatContact.summarize(item.message);
+                ContentValues contentValues2 = new ContentValues();
+                contentValues2.put("lastMessage", lastMessage);
+                db.update(CONTACTS_TABLE_NAME, contentValues2, "email = ?", new String[]{thread});
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        finally {
+            db.close();
+        }
     }
 
     public boolean updateContact(ChatContact item) {
         ContentValues contentValues = new ContentValues();
         contentValues.put("name", item.name);
         contentValues.put("pubkeyhash", item.pubkeyhash);
+        contentValues.put("hidden", 0);
+        contentValues.put("lastMessage", item.lastMessage);
         if (item.avatar != null) {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            if (item.avatar.compress(Bitmap.CompressFormat.JPEG, 1, byteArrayOutputStream)) {
+            if (item.avatar.compress(Bitmap.CompressFormat.PNG, 1, byteArrayOutputStream)) {
                 contentValues.put("avatar", byteArrayOutputStream.toByteArray());
                 contentValues.put("avatarDate", item.avatarDate);
             }
         }
-        return 1 == getWritableDatabase().update(CONTACTS_TABLE_NAME, contentValues, "email = ?", new String[]{item.email});
+        SQLiteDatabase db = getWritableDatabase();
+        try {
+            return 1 == db.update(CONTACTS_TABLE_NAME, contentValues, "email = ?", new String[]{item.email});
+        }
+        finally {
+            db.close();
+        }
     }
 
     public int addContact(ChatContact item) {
@@ -175,7 +236,14 @@ public class DbOpenHelper extends SQLiteOpenHelper {
         contentValues.put("email", item.email);
         contentValues.put("name", item.name);
         contentValues.put("pubkeyhash", item.pubkeyhash);
-        getWritableDatabase().insert(CONTACTS_TABLE_NAME, null, contentValues);
+        contentValues.put("hidden", 0);
+        SQLiteDatabase db = getWritableDatabase();
+        try {
+            db.insertWithOnConflict(CONTACTS_TABLE_NAME, null, contentValues, SQLiteDatabase.CONFLICT_REPLACE);
+        }
+        finally {
+            db.close();
+        }
 
         return addItem(item);
     }

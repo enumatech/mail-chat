@@ -35,7 +35,7 @@ public final class SharedSession {
                 props.put("mail.imap.starttls.required", "true");
                 props.put("mail.imap.starttls.enable", "true");
             }
-            props.put("mail.imap.usesocketchannels", "true");//for IdleManager
+            //props.put("mail.imap.usesocketchannels", "true");//for IdleManager
             props.put("mail.imap.connectiontimeout", "5000");
             props.put("mail.imap.timeout", "5000");
 

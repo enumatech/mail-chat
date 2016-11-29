@@ -123,6 +123,7 @@ public class ChatThreadDetailFragment extends Fragment {
                 ChatMessage chatMessage = pendingMessageMap.get(messageId);
                 chatMessage.status = ChatMessage.Status.values()[status];
                 ((CardListAdapter) recyclerView.getAdapter()).updateMessageStatus(chatMessage);
+                new DbOpenHelper(getContext()).updateMessage(mItem.email, chatMessage);
 
                 if (status == ChatMessage.Status.Delivered.ordinal()) {
                     pendingMessageMap.remove(messageId);
@@ -245,6 +246,7 @@ public class ChatThreadDetailFragment extends Fragment {
         if (chatMessage.messageId != null) {
             inReplyTo = chatMessage.messageId;
         }
-        new DbOpenHelper(getContext()).saveMessage(mItem.email, chatMessage);
+        mItem.lastMessage = ChatContact.summarize(chatMessage.message);
+        new DbOpenHelper(getContext()).addMessage(mItem.email, chatMessage);
     }
 }
