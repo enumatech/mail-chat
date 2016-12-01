@@ -215,13 +215,28 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                         @Override
                         public boolean onPreferenceChange(Preference preference, Object newValue) {
                             String stringValue = newValue.toString();
+                            String[] x = stringValue.split("@");
+
                             putStringIfEmpty("smtp_username", stringValue);
                             putStringIfEmpty("imap_username", stringValue);
-                            String[] x = stringValue.split("@");
                             if (x.length == 2) {
-                                putStringIfEmpty("smtp_server", x[1]);
-                                putStringIfEmpty("imap_server", x[1]);
                                 putStringIfEmpty("display_name", x[0]);
+                                if (x[1].equalsIgnoreCase("gmail.com")) {
+                                    putStringIfEmpty("smtp_server", "smtp.gmail.com:587");
+                                    putStringIfEmpty("imap_server", "imap.gmail.com:993");
+                                }
+                                else if (x[1].equalsIgnoreCase("outlook.com")) {
+                                    putStringIfEmpty("smtp_server", "smtp-mail.outlook.com:587");
+                                    putStringIfEmpty("imap_server", "imap-mail.outlook.com:993");
+                                }
+                                else if (x[1].equalsIgnoreCase("live.com")) {
+                                    putStringIfEmpty("smtp_server", "smtp.live.com:587");
+                                    putStringIfEmpty("imap_server", "imap.live.com:993");
+                                }
+                                else {
+                                    putStringIfEmpty("smtp_server", x[1]);
+                                    putStringIfEmpty("imap_server", x[1]);
+                                }
                             }
                             return sBindPreferenceSummaryToValueListener.onPreferenceChange(preference, newValue);
                         }
@@ -241,6 +256,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             bindPreferenceSummaryToValue(findPreference("imap_username"), sBindPreferenceSummaryToValueListener);
             bindPreferenceSummaryToValue(findPreference("imap_password"), sBindPreferenceSummaryToValueListener);
             bindPreferenceSummaryToValue(findPreference("pref_security"), sBindPreferenceSummaryToValueListener);
+
+            ((MyEditTextPreference)findPreference("email_address")).show();
         }
 
         @Override

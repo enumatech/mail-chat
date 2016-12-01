@@ -114,15 +114,13 @@ public class ChatThreadListActivity extends AppCompatActivity {
                     contact = new ChatContact(sender);
                     contact.name = senderName;
                     db.addContact(contact);
+                    //recyclerView.getAdapter().notifyDataSetChanged();
                 }
                 if (contact != null) {
                     ChatMessage chatMessage = ChatMessage.createOthers(text, messageId, senderName);
-                    db.addMessage(contact.email, chatMessage);
-//                    if (contact.history == null) {
-//                        contact.history = new ArrayList<>();
-//                    }
-//                    contact.history.add(chatMessage);
-                    contact.lastMessage = ChatContact.summarize(text);
+                    if (db.addMessage(contact.email, chatMessage)) {
+                        contact.lastMessage = ChatContact.summarize(text);
+                    }
                     recyclerView.getAdapter().notifyDataSetChanged();
                 }
                 if (sender == null && messageId == null) {

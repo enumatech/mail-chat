@@ -57,4 +57,9 @@ public class EncryptedEditTextPreference extends EditTextPreference {
         }
         return defaultReturnValue;
     }
+
+    public void show() {
+        showDialog(null);
+    }
+
 }

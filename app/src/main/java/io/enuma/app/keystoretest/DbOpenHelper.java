@@ -43,7 +43,7 @@ public class DbOpenHelper extends SQLiteOpenHelper {
      */
     private static final Map<String, ChatContact> ITEM_MAP = new HashMap<String, ChatContact>();
 
-    private static final int DATABASE_VERSION = 6;
+    private static final int DATABASE_VERSION = 7;
 
     private static final String CONTACTS_TABLE_NAME = "contacts";
     private static final String CONTACTS_TABLE_CREATE =
@@ -53,8 +53,11 @@ public class DbOpenHelper extends SQLiteOpenHelper {
                     "pubkeyhash TEXT, " +
                     "lastMessage TEXT, " +
                     "hidden BOOLEAN NOT NULL DEFAULT 0, " +
+                    "timestamp DATE NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
                     "avatar BLOB, " +
                     "avatarDate TEXT );";
+    private static final String CONTACTS_INDEX_CREATE =
+            "CREATE INDEX IDX_contacts_timestamp ON " + CONTACTS_TABLE_NAME + "(timestamp);";
 
     private static final String MESSAGES_TABLE_NAME = "messages";
     private static final String MESSAGES_TABLE_CREATE =
@@ -81,6 +84,8 @@ public class DbOpenHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(CONTACTS_TABLE_CREATE);
+        db.execSQL(CONTACTS_INDEX_CREATE);
+
         db.execSQL(MESSAGES_TABLE_CREATE);
         db.execSQL(MESSAGES_INDEX_CREATE);
         db.execSQL(MESSAGES_INDEX_CREATE2);
@@ -88,17 +93,21 @@ public class DbOpenHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (newVersion == 3) {
+        if (oldVersion < 3) {
             db.execSQL("ALTER TABLE contacts ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT 0;");
         }
-        if (newVersion == 5) {
+        if (oldVersion < 5) {
             db.execSQL("ALTER TABLE contacts ADD COLUMN avatar BLOB;");
             db.execSQL(MESSAGES_TABLE_CREATE);
             db.execSQL(MESSAGES_INDEX_CREATE);
             db.execSQL(MESSAGES_INDEX_CREATE2);
         }
-        if (newVersion == 6) {
+        if (oldVersion < 6) {
             db.execSQL("ALTER TABLE contacts ADD COLUMN avatarDate TEXT;");
+        }
+        if (oldVersion < 7) {
+            db.execSQL("ALTER TABLE contacts ADD COLUMN timestamp DATE NOT NULL DEFAULT 0;");
+            db.execSQL(CONTACTS_INDEX_CREATE);
         }
     }
 
@@ -107,7 +116,7 @@ public class DbOpenHelper extends SQLiteOpenHelper {
         try {
             Cursor cursor = db.query(MESSAGES_TABLE_NAME,
                     new String[]{"message", "messageid", "senderName", "status"},
-                    "thread = ?", new String[]{thread}, null, null, "-timestamp", limit > 0 ? String.valueOf(limit) : null);
+                    "thread = ?", new String[]{thread}, null, null, "timestamp desc", limit > 0 ? String.valueOf(limit) : null);
             ArrayList<ChatMessage> list = new ArrayList<ChatMessage>(cursor.getCount());
             while (cursor.moveToNext()) {
                 ChatMessage chatMessage = new ChatMessage(cursor.getString(0), cursor.getString(1), cursor.getString(2));
@@ -128,7 +137,7 @@ public class DbOpenHelper extends SQLiteOpenHelper {
         try {
             Cursor cursor = db.query(CONTACTS_TABLE_NAME,
                     new String[]{"email", "name", "pubkeyhash", "lastMessage", "avatar", "avatarDate"},
-                    "hidden = 0", null, null, null, null);
+                    "hidden = 0", null, null, null, "timestamp desc");
             while (cursor.moveToNext()) {
                 ChatContact chatContact = new ChatContact(cursor.getString(0));
                 chatContact.name = cursor.getString(1);
@@ -197,9 +206,13 @@ public class DbOpenHelper extends SQLiteOpenHelper {
             contentValues.put("status", item.status.ordinal());
             if (0 < db.insertWithOnConflict(MESSAGES_TABLE_NAME, null, contentValues, SQLiteDatabase.CONFLICT_IGNORE)) {
                 String lastMessage = ChatContact.summarize(item.message);
-                ContentValues contentValues2 = new ContentValues();
-                contentValues2.put("lastMessage", lastMessage);
-                db.update(CONTACTS_TABLE_NAME, contentValues2, "email = ?", new String[]{thread});
+//                ContentValues contentValues2 = new ContentValues();
+//                contentValues2.put("lastMessage", lastMessage);
+//                contentValues2.put("timestamp", new Date);
+//                db.update(CONTACTS_TABLE_NAME, contentValues2, "email = ?", new String[]{thread});
+                db.execSQL("UPDATE "+CONTACTS_TABLE_NAME+
+                        " SET lastMessage=? , timestamp=CURRENT_TIMESTAMP"+
+                        " WHERE email=?", new Object[]{ lastMessage, thread });
                 return true;
             }
             else {

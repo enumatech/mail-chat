@@ -286,13 +286,17 @@ public class ChatThreadDetailFragment extends Fragment {
 
 
     private void addMessage(ChatMessage chatMessage) {
-        ((CardListAdapter)recyclerView.getAdapter()).addMessage(chatMessage);
-        //recyclerView.smoothScrollToPosition(recyclerView.getAdapter().getItemCount());
-        recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount()-1);
-        if (chatMessage.messageId != null) {
-            inReplyTo = chatMessage.messageId;
+
+        if (new DbOpenHelper(getContext()).addMessage(mItem.email, chatMessage)) {
+
+            ((CardListAdapter)recyclerView.getAdapter()).addMessage(chatMessage);
+            //recyclerView.smoothScrollToPosition(recyclerView.getAdapter().getItemCount());
+            recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount()-1);
+
+            if (chatMessage.messageId != null) {
+                inReplyTo = chatMessage.messageId;
+            }
+            mItem.lastMessage = ChatContact.summarize(chatMessage.message);
         }
-        mItem.lastMessage = ChatContact.summarize(chatMessage.message);
-        new DbOpenHelper(getContext()).addMessage(mItem.email, chatMessage);
     }
 }
