@@ -1,72 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.v4.widget.SwipeRefreshLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/activity_main"
+    app:layoutManager="LinearLayoutManager"
+    android:id="@+id/swipeRefreshLayout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".ChatThreadDetailFragment"
-    >
+    android:layout_height="match_parent">
 
-    <android.support.v7.widget.RecyclerView
+    <RelativeLayout
+        android:id="@+id/activity_main"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:transcriptMode="alwaysScroll"
-        android:id="@+id/cardList"
-        android:background="@color/backgroundChat"
-        android:layout_above="@+id/msg_box"
-        app:layoutManager="LinearLayoutManager"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        />
-
-    <android.support.design.widget.FloatingActionButton
-        android:id="@+id/fab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical|start"
-        android:layout_margin="@dimen/fab_margin"
-        android:gravity="top|right"
-        app:layout_anchorGravity="top|right|end"
-        app:srcCompat="@drawable/ic_person_black_24dp" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="5dp"
-        android:layout_above="@+id/msg_box"
-        android:background="@drawable/light_fade_up"
-        />
-
-    <LinearLayout
-        android:id="@+id/msg_box"
-        style="@style/AppTheme.MessageBar"
-        android:orientation="horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:padding="2dp"
+        tools:context=".ChatThreadDetailFragment"
         >
 
-        <EditText
-            android:id="@+id/message_et"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="5dp"
-            android:layout_marginLeft ="5dp"
-            android:layout_marginEnd  ="5dp"
-            android:layout_marginRight="5dp"
-            android:layout_weight="4"
+        <android.support.v7.widget.RecyclerView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:transcriptMode="alwaysScroll"
+            android:id="@+id/cardList"
+            android:background="@color/backgroundChat"
+            android:layout_above="@+id/msg_box"
+            android:scrollbars="vertical"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior"
             />
 
-        <Button
-            android:id="@+id/send_message"
-            android:text="@string/send_message"
-            android:textColor="#ffffff"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/round_rect_shape_send"
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="5dp"
+            android:layout_above="@+id/msg_box"
+            android:background="@drawable/light_fade_up"
             />
 
-    </LinearLayout>
+        <LinearLayout
+            android:id="@+id/msg_box"
+            style="@style/AppTheme.MessageBar"
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:padding="2dp"
+            >
 
-</RelativeLayout>
+            <EditText
+                android:id="@+id/message_et"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:layout_marginLeft ="5dp"
+                android:layout_marginEnd  ="5dp"
+                android:layout_marginRight="5dp"
+                android:layout_weight="4"
+                />
+
+            <Button
+                android:id="@+id/send_message"
+                android:text="@string/send_message"
+                android:textColor="#ffffff"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/round_rect_shape_send"
+                />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+</android.support.v4.widget.SwipeRefreshLayout>

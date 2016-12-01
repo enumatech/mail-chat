@@ -61,7 +61,7 @@ public class ImapService extends Service {
     });
 
     final static int FETCH_COUNT = 100;
-    final static Pattern chatPattern = Pattern.compile("\\A\\s*(.*?)\\s*(?:^>>|^> |^--|\\z|^—|^__|^On [^\n]+ wrote:$)", Pattern.DOTALL|Pattern.MULTILINE);
+    final static Pattern chatPattern = Pattern.compile("\\A\\s*(.*?)\\s*(?:^>>|^> |^--|\\z|^—|^__|^On [^\n]+ wrote:$|^Sent from my iPhone$)", Pattern.DOTALL|Pattern.MULTILINE);
 
 
     final FetchProfile fp = new FetchProfile();
@@ -175,8 +175,9 @@ public class ImapService extends Service {
         Log.v("imap", "FETCH count " + msgs.length);
         f.fetch(msgs, fp);
         int count = parseMessages(msgs);
-        Log.v("imap", "FETCHed count " + count);
-        return count > 0 ? f.getUID(msgs[count-1]) : 0;
+        long uid = count > 0 ? f.getUID(msgs[count-1]) : 0;
+        Log.v("imap", "FETCHed count " + count + ", last UID " + uid);
+        return uid;
     }
 
     private IMAPFolder folder;

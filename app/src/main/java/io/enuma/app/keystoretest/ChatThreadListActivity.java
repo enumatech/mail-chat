@@ -16,6 +16,9 @@ import android.support.v7.widget.Toolbar;
 import android.support.design.widget.FloatingActionButton;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -73,14 +76,6 @@ public class ChatThreadListActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
         toolbar.setTitle(getTitle());
 
-        FloatingActionButton fab_setting = (FloatingActionButton) findViewById(R.id.fab_settings);
-        fab_setting.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                SettingsActivity.showPreferences(ChatThreadListActivity.this);
-            }
-        });
-
         FloatingActionButton fab_email = (FloatingActionButton) findViewById(R.id.fab_email);
         fab_email.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -137,6 +132,28 @@ public class ChatThreadListActivity extends AppCompatActivity {
         }
     };
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.actions, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.app_bar_person:
+                Intent intent = new Intent(getBaseContext(), ShareContactActivity.class);
+                startActivityForResult(intent, CREATE_REQUEST_CODE);
+                return true;
+            case R.id.app_bar_settings:
+                SettingsActivity.showPreferences(ChatThreadListActivity.this);
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
 
     static final int CREATE_REQUEST_CODE = 11;
     static final int ADD_REQUEST_CODE = 12;

@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 
 import static io.enuma.app.keystoretest.ChatThreadListActivity.CREATE_REQUEST_CODE;
@@ -16,7 +18,7 @@ import static io.enuma.app.keystoretest.ChatThreadListActivity.CREATE_REQUEST_CO
  */
 public class ChatThreadDetailActivity extends AppCompatActivity {
 
-    private ChatThreadDetailFragment fragment;
+    private final ChatThreadDetailFragment fragment = new ChatThreadDetailFragment();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +50,6 @@ public class ChatThreadDetailActivity extends AppCompatActivity {
             arguments.putString(ChatThreadDetailFragment.ARG_ITEM_ID,
                     getIntent().getStringExtra(ChatThreadDetailFragment.ARG_ITEM_ID));
 
-            fragment = new ChatThreadDetailFragment();
             fragment.setArguments(arguments);
             getSupportFragmentManager().beginTransaction()
                     .add(R.id.chatthread_detail_container, fragment)
@@ -83,7 +84,6 @@ public class ChatThreadDetailActivity extends AppCompatActivity {
         registerReceiver(fragment.receiver, filter);
         super.onResume();
     }
-
 
     @Override
     protected void onPause() {

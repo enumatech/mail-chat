@@ -30,7 +30,7 @@
 
         <Button
             android:id="@+id/share_contact_ok"
-            android:text="@string/ok"
+            android:text="@string/add"
             android:textColor="#ffffff"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

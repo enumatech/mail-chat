@@ -9,6 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,19 +102,20 @@ public class DbOpenHelper extends SQLiteOpenHelper {
         }
     }
 
-    public List<ChatMessage> readAllMessages(String thread) {
+    public List<ChatMessage> readMessages(String thread, int limit) {
         SQLiteDatabase db = getReadableDatabase();
         try {
             Cursor cursor = db.query(MESSAGES_TABLE_NAME,
                     new String[]{"message", "messageid", "senderName", "status"},
-                    "thread = ?", new String[]{thread}, null, null, "timestamp");
-            List<ChatMessage> list = new ArrayList<ChatMessage>();
+                    "thread = ?", new String[]{thread}, null, null, "-timestamp", limit > 0 ? String.valueOf(limit) : null);
+            ArrayList<ChatMessage> list = new ArrayList<ChatMessage>(cursor.getCount());
             while (cursor.moveToNext()) {
                 ChatMessage chatMessage = new ChatMessage(cursor.getString(0), cursor.getString(1), cursor.getString(2));
                 chatMessage.status = ChatMessage.Status.values()[cursor.getInt(3)];
                 list.add(chatMessage);
             }
             cursor.close();
+            Collections.reverse(list);
             return list;
         }
         finally {

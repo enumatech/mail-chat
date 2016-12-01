@@ -5,13 +5,18 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.AsyncTask;
 import android.preference.PreferenceManager;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
@@ -19,8 +24,8 @@ import android.widget.Button;
 import android.widget.EditText;
 
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.mail.internet.InternetAddress;
@@ -53,6 +58,8 @@ public class ChatThreadDetailFragment extends Fragment {
      */
     public static final String ARG_ITEM_ID = "item_id";
 
+    public static final int FETCH_COUNT = 20;
+
 
     /**
      * The dummy content this fragment is presenting.
@@ -74,6 +81,7 @@ public class ChatThreadDetailFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
 
         if (getArguments().containsKey(ARG_ITEM_ID)) {
 
@@ -133,6 +141,31 @@ public class ChatThreadDetailFragment extends Fragment {
     };
 
     @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        inflater.inflate(R.menu.chat_actions, menu);
+        super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.app_bar_person:
+                // Show the group's / contact's QR
+                Intent intent = new Intent(getContext(), ShareContactActivity.class);
+                intent.putExtra(ARG_DISPLAY_NAME, mItem.name);
+                intent.putExtra(ARG_EMAIL_ADDRESS, mItem.email);
+                startActivityForResult(intent, ADD_REQUEST_CODE);
+                return true;
+            case R.id.app_bar_settings:
+                SettingsActivity.showPreferences(getActivity());
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         final View rootView = inflater.inflate(R.layout.activity_main, container, false);
@@ -140,38 +173,51 @@ public class ChatThreadDetailFragment extends Fragment {
         // Show the content as chat history
         if (mItem != null) {
 
-            FloatingActionButton fab = (FloatingActionButton) rootView.findViewById(R.id.fab);
-            fab.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    // Show the group's / contact's QR
-                    Intent intent = new Intent(view.getContext(), ShareContactActivity.class);
-                    intent.putExtra(ARG_DISPLAY_NAME, mItem.name);
-                    intent.putExtra(ARG_EMAIL_ADDRESS, mItem.email);
-                    startActivityForResult(intent, ADD_REQUEST_CODE);
-                }
-            });
-
             // Read old messages, if any
             if (mItem.history == null) {
-                //mItem.history = new ArrayList<ChatMessage>();
-                mItem.history = new DbOpenHelper(getContext()).readAllMessages(mItem.email);
+                mItem.history = new DbOpenHelper(getContext()).readMessages(mItem.email, FETCH_COUNT);
             }
 
             // Use the message-ID of the last message for the next reply
             if (mItem.history.size() > 0) {
                 inReplyTo = mItem.history.get(mItem.history.size() - 1).messageId;
             }
-            CardListAdapter cardListAdapter = new CardListAdapter(mItem.history);
 
             LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this.getContext());
             linearLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
 
             recyclerView = (RecyclerView)rootView.findViewById(R.id.cardList);
-            recyclerView.setLayoutManager(linearLayoutManager);
+
+            final SwipeRefreshLayout swipeRefreshLayout = (SwipeRefreshLayout)rootView.findViewById(R.id.swipeRefreshLayout);
+            swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+                @Override
+                public void onRefresh() {
+                    // Load all message in thread
+                    new AsyncTask<DbOpenHelper,Void,List<ChatMessage>>() {
+                        @Override
+                        protected List<ChatMessage> doInBackground(DbOpenHelper... params) {
+                            return params[0].readMessages(mItem.email, 0);
+                        }
+
+                        @Override
+                        protected void onPostExecute(List<ChatMessage> list) {
+                            final CardListAdapter cardListAdapter = new CardListAdapter(list);
+                            recyclerView.setAdapter(cardListAdapter);
+                            cardListAdapter.notifyDataSetChanged();
+                            // TODO: jump to the correct position
+                        }
+                    }.execute(new DbOpenHelper(getContext()));
+
+                    swipeRefreshLayout.setRefreshing(false);
+                    swipeRefreshLayout.setEnabled(false);
+                }
+            });
+
+            final CardListAdapter cardListAdapter = new CardListAdapter(mItem.history);
             recyclerView.setAdapter(cardListAdapter);
             recyclerView.smoothScrollToPosition(cardListAdapter.getItemCount());
-            //cardListAdapter.notifyDataSetChanged();
+
+            recyclerView.setLayoutManager(linearLayoutManager);
 
             // Scroll down if the keyboard is opened or closed
             recyclerView.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
