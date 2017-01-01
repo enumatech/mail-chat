@@ -68,6 +68,7 @@ public class ChatThreadDetailFragment extends Fragment {
 
     private InternetAddress[] recipients;
     private String inReplyTo;
+    private String emailAddress;
     private RecyclerView recyclerView;
     private volatile String lastSubject = MAILCHAT_SUBJECT;
 
@@ -248,7 +249,7 @@ public class ChatThreadDetailFragment extends Fragment {
                 //receiveMail(recipients);
 
                 SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getContext());
-                final String emailAddress = sharedPreferences.getString("email_address", "");
+                emailAddress = sharedPreferences.getString("email_address", "");
                 final String displayName = sharedPreferences.getString("display_name", "");
                 //final Address address = new InternetAddress(emailAddress, displayName == "" ? null : displayName);
 
@@ -287,7 +288,8 @@ public class ChatThreadDetailFragment extends Fragment {
 
     private void addMessage(ChatMessage chatMessage) {
 
-        if (new DbOpenHelper(getContext()).addMessage(mItem.email, chatMessage)) {
+        if (new DbOpenHelper(getContext()).addMessage(mItem.email, chatMessage)
+                || emailAddress.equals(mItem.email)) {
 
             ((CardListAdapter)recyclerView.getAdapter()).addMessage(chatMessage);
             //recyclerView.smoothScrollToPosition(recyclerView.getAdapter().getItemCount());

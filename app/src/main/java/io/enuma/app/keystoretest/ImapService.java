@@ -53,6 +53,8 @@ import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
 
 public class ImapService extends Service {
 
+    private static final String TAG = "imap";
+
     private final Thread thread = new Thread(new Runnable() {
         @Override
         public void run() {
@@ -75,7 +77,7 @@ public class ImapService extends Service {
     @Override
     public void onCreate() {
         thread.start();
-        Log.d("imap", "service started");
+        Log.d(TAG, "service started");
     }
 
 
@@ -120,7 +122,7 @@ public class ImapService extends Service {
             thread.join();
         } catch (InterruptedException e) {
         }
-        Log.d("imap", "service stopped");
+        Log.d(TAG, "service stopped");
     }
 
 
@@ -172,11 +174,11 @@ public class ImapService extends Service {
     private String emailAddress;
 
     private long fetchMessages(IMAPFolder f, Message[] msgs) throws MessagingException {
-        Log.v("imap", "FETCH count " + msgs.length);
+        Log.v(TAG, "FETCH count " + msgs.length);
         f.fetch(msgs, fp);
         int count = parseMessages(msgs);
         long uid = count > 0 ? f.getUID(msgs[count-1]) : 0;
-        Log.v("imap", "FETCHed count " + count + ", last UID " + uid);
+        Log.v(TAG, "FETCHed count " + count + ", last UID " + uid);
         return uid;
     }
 
@@ -218,13 +220,12 @@ public class ImapService extends Service {
 
                 // Reconnect to the store
                 if (!store.isConnected()) {
-                    Log.v("imap", "reconnect");
+                    Log.v(TAG, "reconnect");
 
                     String imapPassword = sharedPreferences.getString("imap_password", null);
                     String imapUsername = sharedPreferences.getString("imap_username", null);
                     String imapServer = sharedPreferences.getString("imap_server", "unconfigured");
-                    Key secretKey = Keychain.getSecretKey(getBaseContext(), EncryptedEditTextPreference.KEY_ALIAS);
-                    imapPassword = Keychain.decryptString(secretKey, imapPassword);
+                    imapPassword = Keychain.decryptString(imapPassword);
                     int port = ssl ? 993 : 143;
                     String[] split = imapServer.split(":");
                     if (split.length == 2) {
@@ -267,7 +268,7 @@ public class ImapService extends Service {
                     //ResyncData resyncData = new ResyncData(uid_validity, 0, lastUID, UIDFolder.LASTUID);
                     folder.open(Folder.READ_ONLY);
                     int count = folder.getMessageCount();
-                    Log.v("imap", "INBOX count " + count);
+                    Log.v(TAG, "INBOX count " + count);
 
                     long uidvalidity = folder.getUIDValidity();
                     if (uid_validity != uidvalidity) {
@@ -329,7 +330,7 @@ public class ImapService extends Service {
                         continue;
                     }
 
-                    Log.v("imap", "Got mail from "+sender+", for "+recipientAddresses[0]);
+                    Log.v(TAG, "Got mail from "+sender+", for "+recipientAddresses[0]);
 
                     String message = getText(msgs[i]);//lazily
                     if (message != null) {

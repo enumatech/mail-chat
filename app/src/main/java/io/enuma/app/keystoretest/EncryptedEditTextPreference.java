@@ -7,6 +7,7 @@ import android.util.Base64;
 
 
 import java.security.Key;
+import java.security.PublicKey;
 
 import static android.util.Base64.NO_WRAP;
 
@@ -31,32 +32,33 @@ public class EncryptedEditTextPreference extends EditTextPreference {
         super(context);
     }
 
-    public static final String KEY_ALIAS = "Generated preferences key";
 
     @Override
     protected boolean persistString(String value) {
         try {
-            Key secretKey = Keychain.getSecretKey(getContext(), KEY_ALIAS);
-            return super.persistString(Base64.encodeToString(Keychain.encrypt(secretKey, value.getBytes()), NO_WRAP));
+
+            String encrypted = Keychain.encryptString(value);
+            return super.persistString(encrypted);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
 
+
     @Override
     protected String getPersistedString(String defaultReturnValue) {
         try {
             String base64 = super.getPersistedString("");
             if (base64.length() > 0) {
-                Key secretKey = Keychain.getSecretKey(getContext(), KEY_ALIAS);
-                return new String(Keychain.decrypt(secretKey, Base64.decode(base64, 0)));
+                return Keychain.decryptString(base64);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         return defaultReturnValue;
     }
+
 
     public void show() {
         showDialog(null);

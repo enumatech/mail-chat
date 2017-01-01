@@ -20,7 +20,7 @@ import com.google.zxing.WriterException;
 
 import static io.enuma.app.keystoretest.ChatThreadListActivity.setGravatarImage;
 
-public class ShareContactActivity extends AppCompatActivity {
+public class ShareContactActivity extends BaseActivity {
 
     public static final String ARG_EMAIL_ADDRESS = "EMAIL_ADDRESS";
     public static final String ARG_DISPLAY_NAME = "DISPLAY_NAME";

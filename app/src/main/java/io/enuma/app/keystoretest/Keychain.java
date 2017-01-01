@@ -1,12 +1,12 @@
 package io.enuma.app.keystoretest;
 
-import android.*;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.CancellationSignal;
+import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
@@ -15,6 +15,8 @@ import android.util.Base64;
 import android.util.Log;
 
 import java.io.IOException;
+import java.math.BigInteger;
+import java.nio.charset.Charset;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -31,11 +33,12 @@ import java.security.PublicKey;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
-import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Enumeration;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -44,7 +47,9 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.security.auth.x500.X500Principal;
 
+import static android.util.Base64.NO_WRAP;
 import static io.enuma.app.keystoretest.ChatThreadListActivity.bytesToHex;
 
 /**
@@ -55,28 +60,76 @@ public final class Keychain {
 
     private static final String AndroidKeyStore = "AndroidKeyStore";
     private static final String AES_MODE = "AES/GCM/NoPadding";
-    private final static byte[] FIXED_IV = "TmpKeyAnyway".getBytes();
+    private final static byte[] FIXED_IV = "TmpKeyAnyway".getBytes();//12 bytes
+    private static final String RSA_MODE =  "RSA/ECB/PKCS1Padding";
 
-    public static byte[] encrypt(Key secretKey, byte[] input)
-            throws NoSuchPaddingException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, KeyStoreException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchProviderException {
+    public static byte[] encryptAES(SecretKey secretKey, byte[] input)
+            throws Exception {
         Cipher c = Cipher.getInstance(AES_MODE);
         c.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, FIXED_IV));
         return c.doFinal(input);
     }
 
-    public static byte[] decrypt(Key secretKey, byte[] encryptedBytes)
-            throws NoSuchPaddingException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, KeyStoreException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchProviderException {
+    public static byte[] decryptAES(SecretKey secretKey, byte[] encryptedBytes)
+            throws Exception {
         Cipher c2 = Cipher.getInstance(AES_MODE);
         c2.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(128, FIXED_IV));
         return c2.doFinal(encryptedBytes);
     }
 
-    public static Key getSecretKey(Context context, String alias)
-            throws UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, IOException, CertificateException, InvalidAlgorithmParameterException, NoSuchProviderException {
+    public static byte[] encryptRSA(Key publicKey, byte[] input) throws Exception{
+        Cipher inputCipher = Cipher.getInstance(RSA_MODE);//, "AndroidOpenSSL");
+        inputCipher.init(Cipher.ENCRYPT_MODE, publicKey);
+        return inputCipher.doFinal(input);
+    }
+
+    public static byte[] decryptRSA(Key privateKey, byte[] input) throws Exception{
+        Cipher inputCipher = Cipher.getInstance(RSA_MODE);//, "AndroidOpenSSL");
+        inputCipher.init(Cipher.DECRYPT_MODE, privateKey);
+        return inputCipher.doFinal(input);
+    }
+
+
+    private static KeyPair generateKeyPair(Context context, String alias)
+            throws Exception {
+        // Generate a key pair for encryption
+        Calendar start = Calendar.getInstance();
+        Calendar end = Calendar.getInstance();
+        end.add(Calendar.YEAR, 30);
+        KeyPairGeneratorSpec spec = new KeyPairGeneratorSpec.Builder(context)
+                .setAlias(alias)
+                .setSubject(new X500Principal("CN=" + alias))
+                .setSerialNumber(BigInteger.TEN)
+                .setStartDate(start.getTime())
+                .setEndDate(end.getTime())
+                .build();
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, AndroidKeyStore);
+        kpg.initialize(spec);
+        return kpg.generateKeyPair();
+    }
+
+
+    private static SecretKey generateSecretKey()
+            throws Exception {
         KeyStore keyStore = KeyStore.getInstance(AndroidKeyStore);
         keyStore.load(null);
+        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+        keyGen.init(256); // for example
+        SecretKey secretKey = keyGen.generateKey();
+        //keyStore.setKeyEntry(alias, secretKey, null, null);
+        return secretKey;
+    }
 
-        if (!keyStore.containsAlias(alias)) {
+
+    private static SecretKey generateSecretKey(String alias)
+            throws Exception {
+
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
+            // crash
+            throw new NoSuchAlgorithmException();
+        }
+        else {
+
             KeyGenerator keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, AndroidKeyStore);
             keyGenerator.init(
                     new KeyGenParameterSpec.Builder(alias,
@@ -86,23 +139,129 @@ public final class Keychain {
                             .build());
             return keyGenerator.generateKey();
         }
-        else {
-            return keyStore.getKey(alias, null);
+    }
+
+/*
+    private static Key getKeyPair() {
+        KeyStore keyStore = KeyStore.getInstance(AndroidKeyStore);
+        keyStore.load(null);
+        return keyStore.getKey(alias, null);
+    }
+*/
+
+    public static final String APPLICATION_TAG_RSA = "Generated preferences RSA key";
+    public static final String APPLICATION_TAG_AES = "Generated preferences AES key";
+
+
+    public static void deleteAllKeys()
+            throws Exception {
+
+        KeyStore keyStore = KeyStore.getInstance(AndroidKeyStore);
+        keyStore.load(null);
+        Enumeration<String> aliases = keyStore.aliases();
+        while (aliases.hasMoreElements()) {
+            deleteKey(aliases.nextElement());
         }
     }
 
 
-    public static String decryptString(Key secretKey, String base64)
-            throws IOException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException, NoSuchProviderException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchPaddingException, BadPaddingException, KeyStoreException, IllegalBlockSizeException {
-        return new String(Keychain.decrypt(secretKey, Base64.decode(base64, 0)));
+    public static void deleteKey(String alias)
+            throws Exception {
+
+        KeyStore keyStore = KeyStore.getInstance(AndroidKeyStore);
+        keyStore.load(null);
+        keyStore.deleteEntry(alias);
+    }
+
+
+    public static SecretKey findOrGenerateSecretKey(String alias)
+            throws Exception {
+
+        KeyStore keyStore = KeyStore.getInstance(AndroidKeyStore);
+        keyStore.load(null);
+
+        if (!keyStore.containsAlias(alias)) {
+
+            return generateSecretKey(alias);
+        }
+
+        return (SecretKey) keyStore.getKey(alias, null);
+    }
+
+
+    public static Key findOrGenerateKeyPair(String alias, Context context)
+            throws Exception {
+
+        KeyStore keyStore = KeyStore.getInstance(AndroidKeyStore);
+        keyStore.load(null);
+
+        if (!keyStore.containsAlias(alias)) {
+
+            return generateKeyPair(context, alias).getPrivate();
+        }
+
+        return keyStore.getKey(alias, null);
+    }
+
+
+    public static Key findOrGenerateKey(Context context)
+            throws Exception {
+
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
+
+            return findOrGenerateKeyPair(APPLICATION_TAG_RSA, context);
+        }
+        else {
+
+            return findOrGenerateSecretKey(APPLICATION_TAG_AES);
+        }
+    }
+
+
+    public static SecretKey getSecretKey(String alias)
+            throws Exception {
+        KeyStore keyStore = KeyStore.getInstance(AndroidKeyStore);
+        keyStore.load(null);
+        return (SecretKey) keyStore.getKey(alias, null);
+    }
+
+
+    public static String decryptString(String base64)
+            throws Exception {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
+
+            PrivateKey secretKey = Keychain.getPrivateKey(APPLICATION_TAG_RSA);
+            return new String(Keychain.decryptRSA(secretKey, Base64.decode(base64, 0)), utf8);
+        }
+        else {
+
+            SecretKey secretKey = Keychain.getSecretKey(APPLICATION_TAG_AES);
+            return new String(Keychain.decryptAES(secretKey, Base64.decode(base64, 0)), utf8);
+        }
+    }
+
+
+    private static Charset utf8 = Charset.defaultCharset();
+
+
+    public static String encryptString(String str)
+            throws Exception {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
+
+            PublicKey secretKey = Keychain.getPublicKey(APPLICATION_TAG_RSA);
+            return Base64.encodeToString(Keychain.encryptRSA(secretKey, str.getBytes(utf8)), NO_WRAP);
+        }
+        else {
+
+            SecretKey secretKey = Keychain.getSecretKey(APPLICATION_TAG_AES);
+            return Base64.encodeToString(Keychain.encryptAES(secretKey, str.getBytes(utf8)), NO_WRAP);
+        }
     }
 
 
     CancellationSignal cancellationSignal = new CancellationSignal();
-
-
-
     static int ConfirmRequestId = 1;
+
 
     void showAuthenticationScreen(Context context) {
         KeyguardManager keyguardManager = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
@@ -179,7 +338,14 @@ public final class Keychain {
         return "0x" + bytesToHex(Arrays.copyOfRange(sha1hash, 12, 20));
     }
 
-    public static PublicKey getPubkey(String alias)
+    public static PrivateKey getPrivateKey(String alias)
+            throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        return ((KeyStore.PrivateKeyEntry)keyStore.getEntry(alias, null)).getPrivateKey();
+    }
+
+    public static PublicKey getPublicKey(String alias)
             throws KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException {
         KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
         keyStore.load(null);

@@ -21,9 +21,9 @@ public class ChatContact {
     //public String address;
     //public Date date;
     public Bitmap avatar;
-    public String avatarDate;
-    public boolean avatarUpdated;
+    public String avatarEtag;
     public String lastMessage;
+    public Date lastMessageDate = new Date();
     //public String myName;
 
     public ChatContact(String email) {
@@ -32,6 +32,7 @@ public class ChatContact {
 
     public String id() { return email; }
 
+    public boolean avatarUpdated;
     public List<ChatMessage> history;
 
     public static String summarize(String text) {

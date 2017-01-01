@@ -9,6 +9,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 
 import static io.enuma.app.keystoretest.ChatThreadListActivity.CREATE_REQUEST_CODE;
+import static io.enuma.app.keystoretest.ChatThreadListActivity.isActive;
 
 /**
  * An activity representing a single ChatThread detail screen. This
@@ -16,7 +17,7 @@ import static io.enuma.app.keystoretest.ChatThreadListActivity.CREATE_REQUEST_CO
  * item details are presented side-by-side with a list of items
  * in a {@link ChatThreadListActivity}.
  */
-public class ChatThreadDetailActivity extends AppCompatActivity {
+public class ChatThreadDetailActivity extends BaseActivity {
 
     private final ChatThreadDetailFragment fragment = new ChatThreadDetailFragment();
 
@@ -76,20 +77,24 @@ public class ChatThreadDetailActivity extends AppCompatActivity {
 
     @Override
     protected void onResume() {
-        super.onResume();
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(Constants.ADD_MESSAGE);
         filter.addAction(Constants.UPDATE_MESSAGE_STATUS);
         registerReceiver(fragment.receiver, filter);
+
         super.onResume();
     }
 
+
     @Override
     protected void onPause() {
+
         unregisterReceiver(fragment.receiver);
+
         super.onPause();
     }
+
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {

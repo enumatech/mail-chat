@@ -11,9 +11,11 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.util.SortedList;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.support.design.widget.FloatingActionButton;
+import android.support.v7.widget.util.SortedListAdapterCallback;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -29,6 +31,9 @@ import android.widget.Toast;
 import java.io.InputStream;
 import java.net.URLConnection;
 import java.security.MessageDigest;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import static io.enuma.app.keystoretest.Constants.ADD_MESSAGE;
@@ -47,13 +52,15 @@ import static io.enuma.app.keystoretest.Constants.MESSAGE_TEXT;
  * item details. On tablets, the activity presents the list of items and
  * item details side-by-side using two vertical panes.
  */
-public class ChatThreadListActivity extends AppCompatActivity {
+public class ChatThreadListActivity extends BaseActivity {
 
     /**
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
      * device.
      */
     private boolean mTwoPane;
+
+    public static boolean isActive = false;
 
     private RecyclerView recyclerView;
 
@@ -114,14 +121,16 @@ public class ChatThreadListActivity extends AppCompatActivity {
                     contact = new ChatContact(sender);
                     contact.name = senderName;
                     db.addContact(contact);
-                    //recyclerView.getAdapter().notifyDataSetChanged();
+                    ((SimpleItemRecyclerViewAdapter) recyclerView.getAdapter()).addContact(contact);
                 }
                 if (contact != null) {
                     ChatMessage chatMessage = ChatMessage.createOthers(text, messageId, senderName);
                     if (db.addMessage(contact.email, chatMessage)) {
                         contact.lastMessage = ChatContact.summarize(text);
+                        contact.lastMessageDate = new Date();
+                        ((SimpleItemRecyclerViewAdapter) recyclerView.getAdapter()).updateContact(contact);
                     }
-                    recyclerView.getAdapter().notifyDataSetChanged();
+                    //recyclerView.getAdapter().notifyDataSetChanged();
                 }
                 if (sender == null && messageId == null) {
                     Toast.makeText(context, text, Toast.LENGTH_LONG).show();
@@ -130,12 +139,14 @@ public class ChatThreadListActivity extends AppCompatActivity {
         }
     };
 
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.actions, menu);
         return true;
     }
+
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
@@ -165,9 +176,9 @@ public class ChatThreadListActivity extends AppCompatActivity {
                 if (string != null) {
 
                     ChatContact chatContact = new ChatContact(string);
-                    //((SimpleItemRecyclerViewAdapter) recyclerView.getAdapter()).addContact(chatContact);
                     db.addContact(chatContact);
-                    recyclerView.getAdapter().notifyDataSetChanged();
+                    ((SimpleItemRecyclerViewAdapter) recyclerView.getAdapter()).addContact(chatContact);
+                    //recyclerView.getAdapter().notifyDataSetChanged();
 
                     openChat(string);
                 }
@@ -183,9 +194,9 @@ public class ChatThreadListActivity extends AppCompatActivity {
     /** Bump this int to force showing the preference/help screen on launch */
     private final static int prefVersion = 1;
 
+
     @Override
     protected void onResume() {
-        super.onResume();
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
         int previouslyStarted = prefs.getInt("pref_previously_launched", 0);
@@ -197,19 +208,19 @@ public class ChatThreadListActivity extends AppCompatActivity {
             SettingsActivity.showPreferences(this);
         }
 
-        Intent intent = new Intent(this, ImapService.class);
-        startService(intent);
-
         IntentFilter filter = new IntentFilter();
         filter.addAction(Constants.ADD_MESSAGE);
         registerReceiver(receiver, filter);
+
         super.onResume();
     }
 
 
     @Override
     protected void onPause() {
+
         unregisterReceiver(receiver);
+
         super.onPause();
     }
 
@@ -252,13 +263,13 @@ public class ChatThreadListActivity extends AppCompatActivity {
                         byte[] thedigest = md.digest(contact.email.toLowerCase().getBytes("UTF-8"));
                         String md5 = bytesToHex(thedigest);
                         URLConnection urlConnection = new java.net.URL("http://www.gravatar.com/avatar/" + md5 + "?s=128&d=404").openConnection();
-                        if (contact.avatarDate != null) {
+                        if (contact.avatarEtag != null) {
                             // Set the caching header
-                            urlConnection.setRequestProperty("If-Modified-Since", contact.avatarDate);
+                            urlConnection.setRequestProperty("If-Modified-Since", contact.avatarEtag);
                         }
                         InputStream in = urlConnection.getInputStream();
                         Bitmap bitmap = BitmapFactory.decodeStream(in);
-                        contact.avatarDate = urlConnection.getHeaderField("Date");
+                        contact.avatarEtag = urlConnection.getHeaderField("Date");
                         return bitmap;
                     } catch (Exception e) {
 //                        Log.e("Error", e.getMessage());
@@ -298,15 +309,40 @@ public class ChatThreadListActivity extends AppCompatActivity {
     public class SimpleItemRecyclerViewAdapter
             extends RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder> {
 
-        private final List<ChatContact> mValues;
+        private final SortedList<ChatContact> mValues;
 
-        //public void addContact(ChatContact chatContact) {
-            //mValues.add(chatContact);
-        //}
 
-        public SimpleItemRecyclerViewAdapter(List<ChatContact> items) {
-            mValues = items;
+        public SimpleItemRecyclerViewAdapter(Collection<ChatContact> items) {
+            mValues = new SortedList<ChatContact>(ChatContact.class, new SortedListAdapterCallback<ChatContact>(this) {
+                @Override
+                public int compare(ChatContact o1, ChatContact o2) {
+                    return o1.id().equals(o2.id()) ? 0 : o2.lastMessageDate.compareTo(o1.lastMessageDate);
+                }
+
+                @Override
+                public boolean areContentsTheSame(ChatContact oldItem, ChatContact newItem) {
+                    return oldItem.email.equals(newItem.email);
+                }
+
+                @Override
+                public boolean areItemsTheSame(ChatContact item1, ChatContact item2) {
+                    return item1.id().equals(item2.id());
+                }
+            });
+            mValues.addAll(items);
         }
+
+
+        public void addContact(ChatContact chatContact) {
+            mValues.add(chatContact);
+        }
+
+
+        public void updateContact(ChatContact contact) {
+            int i = mValues.indexOf(contact);
+            mValues.recalculatePositionOfItemAt(i);
+        }
+
 
         @Override
         public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {

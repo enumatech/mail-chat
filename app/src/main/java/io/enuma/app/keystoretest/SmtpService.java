@@ -185,8 +185,7 @@ public class SmtpService extends Service {
                 String smtpUsername = sharedPreferences.getString("smtp_username", null);
                 String smtpPassword = sharedPreferences.getString("smtp_password", null);
                 try {
-                    Key secretKey = Keychain.getSecretKey(getBaseContext(), EncryptedEditTextPreference.KEY_ALIAS);
-                    smtpPassword = Keychain.decryptString(secretKey, smtpPassword);
+                    smtpPassword = Keychain.decryptString(smtpPassword);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
